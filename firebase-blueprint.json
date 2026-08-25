@@ -1,0 +1,119 @@
+{
+  "entities": {
+    "userProfile": {
+      "title": "User Profile",
+      "description": "Authenticated user profile and preferences",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "email", "createdAt", "updatedAt"]
+    },
+    "chatMessage": {
+      "title": "Chat Message",
+      "description": "Conversation log between user and JARVIS",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "sender": { "type": "string", "enum": ["user", "jarvis", "system"], "maxLength": 32 },
+        "text": { "type": "string", "maxLength": 5000 },
+        "timestamp": { "type": "string", "maxLength": 128 },
+        "isVoiceInput": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "sender", "text", "timestamp", "createdAt"]
+    },
+    "researchDossierItem": {
+      "title": "Research Dossier",
+      "description": "Synthesized deep research report document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "topic": { "type": "string", "maxLength": 256 },
+        "title": { "type": "string", "maxLength": 256 },
+        "executiveSummary": { "type": "string", "maxLength": 10000 },
+        "dossierJson": { "type": "string", "maxLength": 50000 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "topic", "title", "executiveSummary", "createdAt"]
+    },
+    "productivityTaskItem": {
+      "title": "Productivity Task",
+      "description": "Action matrix item managed by JARVIS",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 256 },
+        "category": { "type": "string", "enum": ["work", "research", "automation", "personal"], "maxLength": 32 },
+        "priority": { "type": "string", "enum": ["high", "medium", "low"], "maxLength": 32 },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "category", "priority", "completed", "createdAt", "updatedAt"]
+    },
+    "browserWorkflowRecord": {
+      "title": "Browser Workflow Record",
+      "description": "Saved autonomous browser task execution session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "workflowName": { "type": "string", "maxLength": 256 },
+        "targetWebsite": { "type": "string", "maxLength": 256 },
+        "status": { "type": "string", "enum": ["pending", "running", "completed", "failed"], "maxLength": 32 },
+        "summaryTitle": { "type": "string", "maxLength": 512 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "workflowName", "targetWebsite", "status", "createdAt"]
+    },
+    "voiceSettings": {
+      "title": "Voice Settings",
+      "description": "User custom voice synthesis configuration",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "pitch": { "type": "number" },
+        "rate": { "type": "number" },
+        "voiceURI": { "type": "string", "maxLength": 512 },
+        "presetName": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "pitch", "rate", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/userProfile" },
+      "description": "User profile records with strict privacy ownership"
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/voiceSettings" },
+      "description": "User application preferences and voice synthesis settings"
+    },
+    "/users/{userId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/chatMessage" },
+      "description": "User conversation logs and voice command records"
+    },
+    "/users/{userId}/research_dossiers/{dossierId}": {
+      "schema": { "$ref": "#/entities/researchDossierItem" },
+      "description": "Saved intelligence research dossiers per user"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/productivityTaskItem" },
+      "description": "Productivity task items per user"
+    },
+    "/users/{userId}/browser_workflows/{workflowId}": {
+      "schema": { "$ref": "#/entities/browserWorkflowRecord" },
+      "description": "Autonomous browser execution history per user"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "JARVIS Autonomous Browser & Voice AI",
+  "description": "An autonomous AI assistant with real browser execution, YouTube playback, live website inspection, human-like browser automation, customizable voice synthesis, and daily productivity workflows.",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
