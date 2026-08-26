@@ -366,24 +366,42 @@ export function processLocalJarvisHeuristics(input: string): LocalJarvisResult {
 
   if (isCompoundBrowserTask) {
     const cleanGoal = trimmed.replace(/^(jarvis|jarvis,|please|kripya)\s+/i, "");
-    const domain = lower.includes("youtube")
-      ? "youtube.com"
-      : lower.includes("amazon")
-      ? "amazon.com"
-      : lower.includes("wiki")
-      ? "wikipedia.org"
-      : lower.includes("google")
-      ? "google.com"
-      : "web";
+    let targetUrl = "https://www.google.com";
+    let actionType: "OPEN_TAB" | "SEARCH_GOOGLE" | "PLAY_YOUTUBE" = "OPEN_TAB";
+
+    if (lower.includes("youtube")) {
+      const q = cleanGoal.replace(/^(search\s+youtube\s+for|open\s+youtube\s+and\s+search\s+for|youtube\s+pe\s+search\s+karo)\s+/i, "");
+      targetUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+      actionType = "PLAY_YOUTUBE";
+    } else if (lower.includes("amazon")) {
+      const q = cleanGoal.replace(/^(search\s+amazon\s+for|open\s+amazon\s+and\s+search\s+for)\s+/i, "");
+      targetUrl = `https://www.amazon.com/s?k=${encodeURIComponent(q)}`;
+    } else if (lower.includes("wiki")) {
+      const q = cleanGoal.replace(/^(search\s+wikipedia\s+for|wiki\s+pe\s+search\s+karo)\s+/i, "");
+      targetUrl = `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(q)}`;
+    } else {
+      const q = cleanGoal.replace(/^(search\s+google\s+for|google\s+search\s+for|search\s+for)\s+/i, "");
+      targetUrl = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+      actionType = "SEARCH_GOOGLE";
+    }
+
+    const speech = isHindi
+      ? `आपके मुख्य ब्राउज़र में "${cleanGoal}" खोला जा रहा है, सर।`
+      : `Executing "${cleanGoal}" in your real browser window, sir.`;
 
     return {
-      text: isHindi
-        ? `ऑटोनॉमस ब्राउज़र एजेंट शुरू किया जा रहा है: "${cleanGoal}"। मैं स्टेप-बाय-स्टेप नेविगेशन, क्लिक और डेटा एक्सट्रैक्शन को लाइव स्क्रीन पर निष्पादित कर रहा हूँ, सर।`
-        : `Deconstructing multi-step autonomous browser plan for "${cleanGoal}", sir. Engaging Playwright automation loop, human-like cursor control, and visual DOM verification.`,
-      browserWorkflowTriggered: true,
-      workflowGoal: cleanGoal,
-      targetWebsite: domain,
-      sources: [{ title: `Autonomous Workflow: ${cleanGoal}`, url: `https://${domain}` }],
+      text: speech,
+      sources: [{ title: `Real Browser: ${cleanGoal}`, url: targetUrl }],
+      realBrowserAction: {
+        action: actionType,
+        query: cleanGoal,
+        targetUrl,
+        confirmationSpeech: speech,
+      },
+      systemAction: {
+        type: "OPEN_BROWSER_URL",
+        browserUrl: targetUrl,
+      },
     };
   }
 

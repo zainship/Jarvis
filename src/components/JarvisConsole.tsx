@@ -33,7 +33,6 @@ interface JarvisConsoleProps {
   onSpeakMessage: (text: string) => void;
   interimTranscript: string;
   isProcessing: boolean;
-  onTriggerBrowserWorkflow: (prompt: string) => void;
   onOpenVoiceSettings?: () => void;
   onOpenRealTab?: (url: string, name?: string) => void;
   onPlayYouTube?: (query: string) => void;
@@ -47,7 +46,6 @@ export const JarvisConsole: React.FC<JarvisConsoleProps> = ({
   onSpeakMessage,
   interimTranscript,
   isProcessing,
-  onTriggerBrowserWorkflow,
   onOpenVoiceSettings,
   onOpenRealTab,
   onPlayYouTube,
@@ -434,13 +432,9 @@ export const JarvisConsole: React.FC<JarvisConsoleProps> = ({
             key={idx}
             id={`quick-cmd-btn-${idx}`}
             onClick={() => {
-              if (cmd.isBrowser) {
-                onTriggerBrowserWorkflow(cmd.prompt);
-              } else {
-                onSendMessage(cmd.prompt, false);
-              }
+              onSendMessage(cmd.prompt, false);
             }}
-            className="px-3 py-1 rounded-full text-xs font-mono bg-[#0A0A0C] border border-white/5 text-slate-400 hover:text-sky-300 hover:border-sky-500/30 hover:bg-white/5 transition-all shadow-sm"
+            className="px-3 py-1 rounded-full text-xs font-mono bg-[#0A0A0C] border border-white/5 text-slate-400 hover:text-sky-300 hover:border-sky-500/30 hover:bg-white/5 transition-all shadow-sm cursor-pointer"
           >
             {cmd.label}
           </button>

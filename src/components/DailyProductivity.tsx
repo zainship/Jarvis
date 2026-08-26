@@ -33,7 +33,7 @@ import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 
 interface DailyProductivityProps {
   onJarvisSpeak: (text: string) => void;
-  onTriggerBrowserWorkflow: (prompt: string) => void;
+  onOpenRealTab?: (url: string, name?: string) => void;
   initialNewTask?: {
     title: string;
     category?: "work" | "research" | "automation" | "personal";
@@ -43,7 +43,7 @@ interface DailyProductivityProps {
 
 export const DailyProductivity: React.FC<DailyProductivityProps> = ({
   onJarvisSpeak,
-  onTriggerBrowserWorkflow,
+  onOpenRealTab,
   initialNewTask,
 }) => {
   const [briefing, setBriefing] = useState<DailyBriefingData | null>(null);
@@ -427,18 +427,21 @@ export const DailyProductivity: React.FC<DailyProductivityProps> = ({
             {[
               {
                 title: "Morning Market Radar",
-                desc: "Scans S&P500, Tech indices & commodities with live grounded analysis.",
-                prompt: "Navigate to market news, analyze current tech stocks and generate executive briefing.",
+                desc: "Live S&P500, Tech indices & financial market analysis.",
+                url: "https://finance.yahoo.com",
+                name: "Yahoo Finance Market Radar",
               },
               {
-                title: "arXiv AI Research Scraper",
-                desc: "Crawls recent LLM architectures and compiles key breakthroughs.",
-                prompt: "Browse arXiv AI papers, extract authors, abstracts, and benchmark results.",
+                title: "arXiv AI Research Papers",
+                desc: "Recent LLM architectures, robotics, and generative AI research papers.",
+                url: "https://arxiv.org/list/cs.AI/recent",
+                name: "arXiv AI Research",
               },
               {
-                title: "Competitor Price Watchdog",
-                desc: "Emulates browser navigation to compare e-commerce pricing tables.",
-                prompt: "Compare top 3 mechanical keyboards on tech reviews and extract price table.",
+                title: "Google AI News Watchdog",
+                desc: "Real-time tech news and artificial intelligence breakthroughs.",
+                url: "https://news.google.com/search?q=artificial+intelligence",
+                name: "Google AI News",
               },
             ].map((macro, idx) => (
               <div
@@ -455,10 +458,17 @@ export const DailyProductivity: React.FC<DailyProductivityProps> = ({
                 </div>
                 <button
                   id={`launch-macro-${idx}`}
-                  onClick={() => onTriggerBrowserWorkflow(macro.prompt)}
-                  className="flex items-center justify-between w-full px-4 py-1.5 rounded-full bg-[#0A0A0C] border border-white/10 text-sky-400 hover:text-white hover:border-sky-500/40 text-[11px] font-mono transition-all"
+                  onClick={() => {
+                    SoundFX.playTargetClick();
+                    if (onOpenRealTab) {
+                      onOpenRealTab(macro.url, macro.name);
+                    } else {
+                      window.open(macro.url, "_blank");
+                    }
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-1.5 rounded-full bg-[#0A0A0C] border border-white/10 text-sky-400 hover:text-white hover:border-sky-500/40 text-[11px] font-mono transition-all cursor-pointer"
                 >
-                  <span>ENGAGE WORKFLOW</span>
+                  <span>LAUNCH IN REAL BROWSER</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>

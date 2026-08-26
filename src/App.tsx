@@ -8,15 +8,13 @@ import { HeaderNav } from "./components/HeaderNav";
 import { ArcReactorHUD } from "./components/ArcReactorHUD";
 import { JarvisConsole } from "./components/JarvisConsole";
 import { VoiceVisualizationConsole } from "./components/VoiceVisualizationConsole";
-import { BrowserSandbox } from "./components/BrowserSandbox";
 import { DailyProductivity } from "./components/DailyProductivity";
 import { ResearchLab } from "./components/ResearchLab";
 import { FocusModeHUD } from "./components/FocusModeHUD";
 import { VoiceSettingsModal } from "./components/VoiceSettingsModal";
 import { YouTubeMediaHUD } from "./components/YouTubeMediaHUD";
 import { VisionOpticsHUD } from "./components/VisionOpticsHUD";
-import { RealBrowserBridge } from "./components/RealBrowserBridge";
-import { ChatMessage, JarvisState, BrowserWorkflowPlan, YouTubeMedia, RealBrowserAction, VisionAnalysisResult } from "./types";
+import { ChatMessage, JarvisState, YouTubeMedia, RealBrowserAction, VisionAnalysisResult } from "./types";
 import { voiceManager } from "./utils/voiceManager";
 import { SoundFX } from "./utils/soundEffects";
 import { processLocalJarvisHeuristics, SystemActionDirective } from "./utils/localJarvisBrain";
@@ -36,7 +34,7 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { collection, query, orderBy, onSnapshot, doc, getDoc } from "firebase/firestore";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"core" | "browser" | "productivity" | "research">("core");
+  const [activeTab, setActiveTab] = useState<"core" | "productivity" | "research">("core");
   const [jarvisState, setJarvisState] = useState<JarvisState>("idle");
   const [statusMessage, setStatusMessage] = useState("JARVIS Neural Core Online. Say 'Jarvis' or click the Arc Reactor.");
   const [isMuted, setIsMuted] = useState(false);
@@ -61,10 +59,7 @@ export default function App() {
   } | null>(null);
   const [copiedToastCmd, setCopiedToastCmd] = useState(false);
 
-  // Cross-component Browser Workflow & Action Triggers
-  const [pendingBrowserWorkflow, setPendingBrowserWorkflow] = useState<BrowserWorkflowPlan | null>(null);
-  const [browserSandboxUrl, setBrowserSandboxUrl] = useState<string>("https://www.youtube.com");
-  const [browserControlMode, setBrowserControlMode] = useState<"real" | "sandbox">("real");
+  // Cross-component Triggers
   const [pendingResearchTopic, setPendingResearchTopic] = useState<string | null>(null);
   const [pendingNewTask, setPendingNewTask] = useState<{
     title: string;
@@ -239,7 +234,6 @@ export default function App() {
     } catch (e) {
       console.log("Direct window.open handled:", e);
     }
-    setBrowserSandboxUrl(formattedUrl);
 
     // Dispatch host execution via multi-strategy pipeline (Local Node bridge, Webhook, URI scheme, and window.open)
     hostBridgeManager.dispatchHostExecution({
@@ -339,10 +333,6 @@ export default function App() {
   const handleOpenRealTab = useCallback((url: string, name?: string) => {
     const formattedUrl = url.startsWith("http://") || url.startsWith("https://") ? url : `https://${url}`;
     const siteTitle = name || url;
-    
-    // Switch active view directly to the interactive browser sandbox so the user sees the page execute
-    setActiveTab("browser");
-    setBrowserSandboxUrl(formattedUrl);
     
     openBrowserTabSafely(formattedUrl, siteTitle, "OPEN_TAB");
 
@@ -518,9 +508,6 @@ export default function App() {
         SoundFX.setEnabled(true);
       } else if (action.type === "SWITCH_TAB" && action.targetTab) {
         setActiveTab(action.targetTab);
-        if (action.browserUrl) {
-          setBrowserSandboxUrl(action.browserUrl);
-        }
       } else if (action.type === "CLOSE_TAB") {
         setActiveTabDispatch(null);
         setActiveYouTubeMedia(null);
@@ -595,68 +582,40 @@ export default function App() {
       return;
     }
 
-    // Intent 1: High-Priority Autonomous Browser Workflow & Multi-Step Agent Commands
-    // (e.g. "search youtube for interstellar soundtrack and click first video", "search amazon for mechanical keyboard and extract pricing", "automate wikipedia research", etc.)
-    const isCompoundBrowserTask =
-      lower.includes(" and click") ||
-      lower.includes(" and scroll") ||
-      lower.includes(" and type") ||
-      lower.includes(" and extract") ||
-      lower.includes(" and play") ||
-      lower.includes(" and filter") ||
-      lower.includes(" and select") ||
-      lower.includes(" and search") ||
-      lower.includes(" and buy") ||
-      lower.startsWith("automate ") ||
-      lower.startsWith("autonomous ") ||
-      lower.includes("workflow") ||
-      lower.includes("fill form") ||
-      lower.includes("fill the form") ||
-      lower.includes("fill out") ||
-      lower.includes("book flight") ||
+    // Intent 1: Direct Browser Commands & Search Queries (e.g. "search amazon for ...", "search youtube for ...", "open github", etc.)
+    const isSearchOrNavQuery =
+      lower.startsWith("search ") ||
+      lower.startsWith("browse ") ||
+      lower.startsWith("open ") ||
+      lower.startsWith("navigate to ") ||
       lower.includes("search amazon for") ||
       lower.includes("search youtube for") ||
-      lower.includes("browse ") ||
-      lower.includes("navigate to ") ||
-      lower.includes("extract from") ||
-      lower.includes("scrape ") ||
-      lower.includes("compare prices") ||
-      lower.includes("playwright") ||
-      lower.includes("puppeteer") ||
-      (lower.includes("search") && (lower.includes("click") || lower.includes("select") || lower.includes("first video") || lower.includes("first result") || lower.includes("scroll")));
+      lower.includes("search google for");
 
-    if (isCompoundBrowserTask) {
-      setActiveTab("browser");
-      setJarvisState("browsing");
-      setStatusMessage("Autonomous Browser Agent Engaged.");
-
-      const jarvisAck = `Understood, sir. Initiating Autonomous Browser Agent and executing: "${text}". Synthesizing Playwright code and human cursor trajectories.`;
-      const jarvisMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: "jarvis",
-        text: jarvisAck,
-        timestamp: new Date().toISOString(),
-        browserWorkflowTriggered: true,
-      };
-      setMessages((prev) => [...prev, jarvisMsg]);
-      if (auth.currentUser) {
-        syncMessageToFirestore(auth.currentUser.uid, jarvisMsg).catch(console.error);
+    if (isSearchOrNavQuery) {
+      let targetUrl = "https://www.google.com";
+      let siteName = "Web Search";
+      
+      if (lower.includes("amazon")) {
+        const query = text.replace(/.*amazon\s+(for\s+)?/i, "").trim();
+        targetUrl = `https://www.amazon.com/s?k=${encodeURIComponent(query || "deals")}`;
+        siteName = "Amazon Search";
+      } else if (lower.includes("youtube")) {
+        const query = text.replace(/.*youtube\s+(for\s+)?/i, "").trim();
+        targetUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query || "trending")}`;
+        siteName = "YouTube Search";
+      } else if (lower.includes("github")) {
+        const query = text.replace(/.*github\s+(for\s+)?/i, "").trim();
+        targetUrl = query ? `https://github.com/search?q=${encodeURIComponent(query)}` : `https://github.com`;
+        siteName = "GitHub";
+      } else if (lower.startsWith("search ")) {
+        const query = text.replace(/^search\s+(google\s+for\s+|for\s+)?/i, "").trim();
+        targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+        siteName = "Google Search";
       }
-      handleSpeak(jarvisAck);
+
+      handleOpenRealTab(targetUrl, siteName);
       setIsProcessing(false);
-
-      // Trigger browser workflow formulation and execution
-      try {
-        const planRes = await fetch("/api/jarvis/browser-plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ taskGoal: text }),
-        });
-        const planData: BrowserWorkflowPlan = await planRes.json();
-        setPendingBrowserWorkflow({ ...planData, timestamp: Date.now() } as any);
-      } catch (e) {
-        console.error("Browser plan formulation error:", e);
-      }
       return;
     }
 
@@ -774,8 +733,6 @@ export default function App() {
           setActiveYouTubeMedia(null);
         } else if (rAction.action === "OPEN_TAB" || rAction.action === "SEARCH_GOOGLE") {
           if (rAction.targetUrl) {
-            setActiveTab("browser");
-            setBrowserSandboxUrl(rAction.targetUrl);
             openBrowserTabSafely(rAction.targetUrl, rAction.query || "Requested Web Page");
           }
         }
@@ -809,8 +766,6 @@ export default function App() {
           }
         } else if (rAction.action === "OPEN_TAB" || rAction.action === "SEARCH_GOOGLE") {
           if (rAction.targetUrl) {
-            setActiveTab("browser");
-            setBrowserSandboxUrl(rAction.targetUrl);
             openBrowserTabSafely(rAction.targetUrl, rAction.query || "Requested Web Page");
           }
         }
@@ -853,71 +808,45 @@ export default function App() {
       {/* Ambient Sophisticated Glow */}
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.06),_transparent_70%)] -z-10" />
 
-      {/* Real Browser Tab & Windows Host Dispatch Floating Banner */}
+      {/* Real Browser Tab Link Notification */}
       {activeTabDispatch && (
         <div
           id="real-tab-dispatch-toast"
-          className="fixed top-4 right-4 z-50 flex flex-col gap-1.5 bg-[#0A0A0C]/95 border border-sky-500/40 px-4 py-3 rounded-2xl shadow-[0_0_30px_rgba(14,165,233,0.25)] backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300 max-w-sm"
+          className="fixed top-4 right-4 z-50 flex items-center justify-between gap-3 bg-[#0A0A0C]/95 border border-sky-500/40 px-4 py-3 rounded-2xl shadow-[0_0_30px_rgba(14,165,233,0.25)] backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300 max-w-sm"
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center shrink-0">
-                <Globe className="w-4 h-4 text-sky-400 animate-pulse" />
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400 font-bold">
-                    Host & Browser Dispatched
-                  </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                </div>
-                <span className="text-xs text-white font-medium max-w-[180px] truncate">
-                  {activeTabDispatch.title}
-                </span>
-              </div>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center shrink-0">
+              <Globe className="w-4 h-4 text-sky-400" />
             </div>
-
-            <div className="flex items-center gap-1">
-              <a
-                href={activeTabDispatch.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => SoundFX.playComputeChime()}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-semibold text-xs font-mono shadow-md transition-all"
-              >
-                <span>Open ↗</span>
-              </a>
-              <button
-                onClick={() => setActiveTabDispatch(null)}
-                className="text-slate-500 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-all"
-                title="Dismiss notification"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400 font-bold">
+                External Link Dispatched
+              </span>
+              <span className="text-xs text-white font-medium max-w-[180px] truncate">
+                {activeTabDispatch.title}
+              </span>
             </div>
           </div>
 
-          {activeTabDispatch.windowsCommand && (
-            <div className="mt-1 pt-1.5 border-t border-white/5 flex items-center justify-between gap-2 text-[10px] font-mono">
-              <div className="flex items-center gap-1 text-slate-400 truncate">
-                <Terminal className="w-3 h-3 text-sky-400 shrink-0" />
-                <span className="truncate text-slate-300">{activeTabDispatch.windowsCommand}</span>
-              </div>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(activeTabDispatch.windowsCommand!);
-                  SoundFX.playComputeChime();
-                  setCopiedToastCmd(true);
-                  setTimeout(() => setCopiedToastCmd(false), 2000);
-                }}
-                className="text-sky-400 hover:text-sky-300 shrink-0 flex items-center gap-0.5"
-                title="Copy Windows Shell Command"
-              >
-                {copiedToastCmd ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                <span>{copiedToastCmd ? "Copied" : "Copy CLI"}</span>
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-1.5">
+            <a
+              href={activeTabDispatch.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => SoundFX.playComputeChime()}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-semibold text-xs font-mono shadow-md transition-all cursor-pointer"
+            >
+              <span>Open</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </a>
+            <button
+              onClick={() => setActiveTabDispatch(null)}
+              className="text-slate-500 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-all cursor-pointer"
+              title="Dismiss"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -1002,7 +931,6 @@ export default function App() {
                     isProcessing={isProcessing}
                     onToggleVoice={toggleVoice}
                     onSpeakMessage={handleSpeak}
-                    onTriggerBrowserWorkflow={handleTriggerBrowserWorkflow}
                     onOpenVoiceSettings={() => setIsVoiceSettingsOpen(true)}
                     onOpenRealTab={handleOpenRealTab}
                     onPlayYouTube={handlePlayYouTube}
@@ -1012,90 +940,12 @@ export default function App() {
               </div>
             )}
 
-            {/* Browser Module: Real Browser Controller & Simulator Sandbox */}
-            {activeTab === "browser" && (
-              <div className="space-y-6">
-                {/* Mode Selector Navigation Pill */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-[#080d1a]/90 border border-sky-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(0,0,0,0.5)]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
-                      <Globe className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-mono font-bold text-white flex items-center gap-2">
-                        <span>BROWSER EXECUTION MODE</span>
-                        <span className="text-[9px] uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                          {browserControlMode === "real" ? "REAL HOST MACHINE" : "SIMULATED SANDBOX"}
-                        </span>
-                      </div>
-                      <p className="text-[11px] font-mono text-white/50">
-                        {browserControlMode === "real"
-                          ? "Commands your real Google Chrome, Edge, and Windows tabs via CDP, Host Bridge, and direct window dispatcher"
-                          : "Visual DOM engine with virtual mouse cursor, step execution, and live DOM tree inspector"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/60 border border-white/10 shrink-0">
-                    <button
-                      id="btn-switch-real-browser"
-                      onClick={() => {
-                        SoundFX.playTargetClick();
-                        setBrowserControlMode("real");
-                      }}
-                      className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
-                        browserControlMode === "real"
-                          ? "bg-sky-500 text-black font-bold shadow-[0_0_15px_rgba(14,165,233,0.4)]"
-                          : "text-white/60 hover:text-white hover:bg-white/5"
-                      }`}
-                    >
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>CONTROL MY REAL BROWSER</span>
-                    </button>
-
-                    <button
-                      id="btn-switch-sandbox-browser"
-                      onClick={() => {
-                        SoundFX.playTargetClick();
-                        setBrowserControlMode("sandbox");
-                      }}
-                      className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
-                        browserControlMode === "sandbox"
-                          ? "bg-sky-500 text-black font-bold shadow-[0_0_15px_rgba(14,165,233,0.4)]"
-                          : "text-white/60 hover:text-white hover:bg-white/5"
-                      }`}
-                    >
-                      <Terminal className="w-3.5 h-3.5" />
-                      <span>SIMULATED SANDBOX</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Active View: Real Browser Bridge vs Sandbox Engine */}
-                {browserControlMode === "real" ? (
-                  <RealBrowserBridge
-                    onOpenRealTab={handleOpenRealTab}
-                    onPlayYouTube={handlePlayYouTube}
-                    onJarvisSpeak={handleSpeak}
-                  />
-                ) : (
-                  <BrowserSandbox
-                    initialWorkflow={pendingBrowserWorkflow}
-                    initialUrl={browserSandboxUrl}
-                    onJarvisSpeak={handleSpeak}
-                    onOpenRealTab={handleOpenRealTab}
-                    onPlayYouTube={handlePlayYouTube}
-                  />
-                )}
-              </div>
-            )}
-
             {/* Daily Productivity & Morning Intelligence Briefing */}
             {activeTab === "productivity" && (
               <DailyProductivity
                 initialNewTask={pendingNewTask}
                 onJarvisSpeak={handleSpeak}
-                onTriggerBrowserWorkflow={handleTriggerBrowserWorkflow}
+                onOpenRealTab={handleOpenRealTab}
               />
             )}
 
@@ -1109,7 +959,7 @@ export default function App() {
           <footer className="w-full border-t border-white/5 bg-[#050506] py-3.5 px-6 text-center text-[10px] font-mono text-slate-500 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-              <span className="tracking-widest uppercase">J.A.R.V.I.S. Autonomous Neural Core & Browser Engine</span>
+              <span className="tracking-widest uppercase">J.A.R.V.I.S. Autonomous Neural Core V.4</span>
             </div>
             <div>
               <span className="tracking-wider uppercase text-slate-500">Google Gemini Live Search Grounding & Real-Time Voice Synthesis</span>

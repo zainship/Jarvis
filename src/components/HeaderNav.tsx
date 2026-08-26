@@ -21,8 +21,8 @@ import { auth, signInWithGoogle, signOutUser } from "../lib/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
 
 interface HeaderNavProps {
-  activeTab: "core" | "browser" | "productivity" | "research";
-  setActiveTab: (tab: "core" | "browser" | "productivity" | "research") => void;
+  activeTab: "core" | "productivity" | "research";
+  setActiveTab: (tab: "core" | "productivity" | "research") => void;
   isMuted: boolean;
   setIsMuted: (muted: boolean) => void;
   isListening: boolean;
@@ -70,7 +70,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
     };
   }, []);
 
-  const handleTabChange = (tab: "core" | "browser" | "productivity" | "research") => {
+  const handleTabChange = (tab: "core" | "productivity" | "research") => {
     SoundFX.playTargetClick();
     setActiveTab(tab);
   };
@@ -127,7 +127,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
       <div className="hidden lg:flex items-center space-x-6 text-[11px] uppercase tracking-widest text-slate-500 font-mono">
         <div className="flex items-center">
           <div className="w-2 h-2 rounded-full bg-sky-500 mr-2 shadow-[0_0_8px_#0ea5e9]"></div>
-          Browser Uplink: Active
+          Core Online
         </div>
         <div className="flex items-center">
           <div className={`w-2 h-2 rounded-full mr-2 ${isListening ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-emerald-500/50"}`}></div>
@@ -152,19 +152,6 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
         >
           <Radio className="w-3.5 h-3.5 text-sky-400" />
           <span>VOICE HUD</span>
-        </button>
-
-        <button
-          id="tab-browser-agent"
-          onClick={() => handleTabChange("browser")}
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-mono transition-all ${
-            activeTab === "browser"
-              ? "bg-sky-500/15 text-sky-400 border border-sky-500/30 shadow-[0_0_15px_rgba(14,165,233,0.15)]"
-              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-          }`}
-        >
-          <Globe className="w-3.5 h-3.5 text-sky-400" />
-          <span>BROWSER CONTROLLER</span>
         </button>
 
         <button

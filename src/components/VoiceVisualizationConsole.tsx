@@ -35,7 +35,6 @@ interface VoiceVisualizationConsoleProps {
   isProcessing: boolean;
   onToggleVoice: () => void;
   onSpeakMessage: (text: string) => void;
-  onTriggerBrowserWorkflow: (prompt: string) => void;
   onOpenVoiceSettings?: () => void;
   onOpenRealTab?: (url: string, name?: string) => void;
   onPlayYouTube?: (query: string) => void;
