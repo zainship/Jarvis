@@ -18,6 +18,9 @@ import {
   CheckCircle2,
   Shield,
   VolumeX,
+  Terminal,
+  Copy,
+  Check,
 } from "lucide-react";
 import { ChatMessage, JarvisState } from "../types";
 import { SoundFX } from "../utils/soundEffects";
@@ -102,13 +105,15 @@ export const VoiceVisualizationConsole: React.FC<VoiceVisualizationConsoleProps>
 
   // Voice presets for 1-click voice prompt dispatching without keyboard typing
   const VOICE_PROMPT_PRESETS = [
+    { label: "Interstellar in 4K", prompt: "Jarvis, play Hans Zimmer Interstellar in 4K" },
+    { label: "AC/DC Back in Black", prompt: "Jarvis, play Back In Black by AC/DC" },
+    { label: "Lofi Live Radio", prompt: "Jarvis, play lofi hip hop live radio" },
+    { label: "Ludovico Einaudi Acoustic", prompt: "Jarvis, play Ludovico Einaudi acoustic" },
+    { label: "System Telemetry Report", prompt: "Jarvis, check system telemetry status" },
+    { label: "Set Volume 75%", prompt: "Jarvis, set volume to 75%" },
     { label: "Look at Me (Optic Vision)", prompt: "Jarvis, look at me and check my status" },
-    { label: "Scan Surrounding Room", prompt: "Jarvis, scan my surroundings and room" },
-    { label: "Check Posture & Energy", prompt: "Jarvis, check my posture and energy levels" },
     { label: "Morning Briefing", prompt: "Jarvis, give me my morning productivity briefing" },
-    { label: "Open YouTube", prompt: "Jarvis, open YouTube" },
     { label: "Search AI Breakthroughs", prompt: "Jarvis, search Google for latest AI breakthroughs" },
-    { label: "Check Market News", prompt: "Jarvis, search Google for global financial and tech market news" },
   ];
 
   // Frequency Stats Calculation
@@ -641,7 +646,7 @@ export const VoiceVisualizationConsole: React.FC<VoiceVisualizationConsoleProps>
 
           {/* Interactive Browser Action Card if triggered */}
           {latestJarvisMessage.realBrowserAction && (
-            <div className="mt-2 pl-8">
+            <div className="mt-2 pl-8 space-y-1.5">
               <div className="p-3 rounded-xl bg-sky-950/30 border border-sky-500/30 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 truncate">
                   <Compass className="w-4 h-4 text-sky-400 animate-spin shrink-0" />
@@ -662,6 +667,26 @@ export const VoiceVisualizationConsole: React.FC<VoiceVisualizationConsoleProps>
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>
               </div>
+
+              {latestJarvisMessage.realBrowserAction.hostCommandWindows && (
+                <div className="px-3 py-1.5 rounded-lg bg-black/60 border border-white/5 flex items-center justify-between gap-2 text-[10px] font-mono text-slate-400">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Terminal className="w-3 h-3 text-sky-400 shrink-0" />
+                    <span className="text-slate-300 truncate">{latestJarvisMessage.realBrowserAction.hostCommandWindows}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(latestJarvisMessage.realBrowserAction!.hostCommandWindows!);
+                      SoundFX.playComputeChime();
+                    }}
+                    className="text-sky-400 hover:text-sky-300 shrink-0 flex items-center gap-1 cursor-pointer"
+                    title="Copy Windows CLI"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copy CLI</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -669,15 +694,15 @@ export const VoiceVisualizationConsole: React.FC<VoiceVisualizationConsoleProps>
           {latestJarvisMessage.youtubeMedia && (
             <div className="mt-2 pl-8">
               <div className="p-3 rounded-xl bg-red-950/20 border border-red-500/30 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 truncate">
                   <Youtube className="w-4 h-4 text-red-500 shrink-0" />
-                  <span className="text-xs font-mono text-slate-300 font-bold">
+                  <span className="text-xs font-mono text-slate-300 font-bold truncate">
                     {latestJarvisMessage.youtubeMedia.title || "YouTube Stream"}
                   </span>
                 </div>
                 {onPlayYouTube && (
                   <button
-                    onClick={() => onPlayYouTube(latestJarvisMessage.youtubeMedia!.searchQuery)}
+                    onClick={() => onPlayYouTube(latestJarvisMessage.youtubeMedia!.title || "lofi")}
                     className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold text-xs font-mono shrink-0 shadow-md transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <span>Play Video</span>

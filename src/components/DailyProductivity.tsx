@@ -34,11 +34,17 @@ import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 interface DailyProductivityProps {
   onJarvisSpeak: (text: string) => void;
   onTriggerBrowserWorkflow: (prompt: string) => void;
+  initialNewTask?: {
+    title: string;
+    category?: "work" | "research" | "automation" | "personal";
+    priority?: "low" | "medium" | "high";
+  } | null;
 }
 
 export const DailyProductivity: React.FC<DailyProductivityProps> = ({
   onJarvisSpeak,
   onTriggerBrowserWorkflow,
+  initialNewTask,
 }) => {
   const [briefing, setBriefing] = useState<DailyBriefingData | null>(null);
   const [isLoadingBriefing, setIsLoadingBriefing] = useState(false);
@@ -126,6 +132,24 @@ export const DailyProductivity: React.FC<DailyProductivityProps> = ({
     }
     fetchDailyBriefing(false);
   }, []);
+
+  // Handle external new task creation
+  useEffect(() => {
+    if (initialNewTask && initialNewTask.title) {
+      const taskObj: ProductivityTask = {
+        id: Date.now().toString(),
+        title: initialNewTask.title,
+        category: initialNewTask.category || "work",
+        priority: initialNewTask.priority || "medium",
+        completed: false,
+      };
+      setTasks((prev) => [taskObj, ...prev]);
+      SoundFX.playWorkflowSuccess();
+      if (currentUser) {
+        syncTaskToFirestore(currentUser.uid, taskObj).catch(console.error);
+      }
+    }
+  }, [initialNewTask, currentUser]);
 
   const fetchDailyBriefing = async (forceRefresh: boolean = false) => {
     setIsLoadingBriefing(true);

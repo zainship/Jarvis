@@ -14,6 +14,8 @@ import {
   Cpu,
   Mic,
   Activity,
+  Globe,
+  Languages,
 } from "lucide-react";
 import { voiceManager, VOICE_PRESETS } from "../utils/voiceManager";
 import { VoiceSettings } from "../types";
@@ -33,8 +35,16 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({ isOpen, 
 
   useEffect(() => {
     if (isOpen) {
-      setSettings(voiceManager.getSettings());
+      const current = voiceManager.getSettings();
+      setSettings(current);
       setAvailableVoices(voiceManager.getAvailableVoices());
+      if (current.language === "hi-IN") {
+        setTestPhrase("नमस्ते सर, जार्विस आपके आदेश के लिए पूरी तरह तैयार है।");
+      } else if (current.language === "auto") {
+        setTestPhrase("JARVIS dual-language system online, sir. English aur Hindi dono mein commands active hain.");
+      } else {
+        setTestPhrase("Voice calibration confirmed, sir. Audio frequency and pacing are operating at optimal parameters.");
+      }
     }
   }, [isOpen]);
 
@@ -47,6 +57,26 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({ isOpen, 
   }, []);
 
   if (!isOpen) return null;
+
+  const handleLanguageChange = (lang: "auto" | "hi-IN" | "en-US" | "en-GB") => {
+    SoundFX.playComputeChime();
+    let phrase = testPhrase;
+    if (lang === "hi-IN") {
+      phrase = "नमस्ते सर, जार्विस आपके आदेश के लिए पूरी तरह तैयार है।";
+    } else if (lang === "auto") {
+      phrase = "JARVIS dual-language system online, sir. English aur Hindi dono mein commands active hain.";
+    } else {
+      phrase = "Voice calibration confirmed, sir. Audio frequency and pacing are operating at optimal parameters.";
+    }
+    setTestPhrase(phrase);
+
+    const next: VoiceSettings = { ...settings, language: lang };
+    setSettings(next);
+    voiceManager.setSettings(next);
+    if (auth.currentUser) {
+      syncVoiceSettingsToFirestore(auth.currentUser.uid, next).catch(console.error);
+    }
+  };
 
   const handlePitchChange = (pitchVal: number) => {
     const next = { ...settings, pitch: pitchVal, presetName: "Custom" };
@@ -80,6 +110,11 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({ isOpen, 
     voiceManager.applyPreset(presetName);
     const updated = voiceManager.getSettings();
     setSettings(updated);
+    if (updated.language === "hi-IN") {
+      setTestPhrase("नमस्ते सर, जार्विस आपके आदेश के लिए पूरी तरह तैयार है।");
+    } else if (updated.language === "auto") {
+      setTestPhrase("JARVIS dual-language system online, sir. English aur Hindi dono mein commands active hain.");
+    }
     if (auth.currentUser) {
       syncVoiceSettingsToFirestore(auth.currentUser.uid, updated).catch(console.error);
     }
@@ -92,8 +127,10 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({ isOpen, 
       rate: 1.05,
       voiceURI: "",
       presetName: "Classic JARVIS",
+      language: "auto",
     };
     setSettings(defaults);
+    setTestPhrase("Voice calibration confirmed, sir. Audio frequency and pacing are operating at optimal parameters.");
     voiceManager.setSettings(defaults);
     if (auth.currentUser) {
       syncVoiceSettingsToFirestore(auth.currentUser.uid, defaults).catch(console.error);
@@ -147,7 +184,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({ isOpen, 
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ duration: 0.2 }}
-          className="relative w-full max-w-2xl bg-[#0A0A0C] border border-sky-500/30 rounded-3xl p-6 sm:p-7 shadow-[0_0_50px_rgba(14,165,233,0.15)] flex flex-col gap-6 z-10 max-h-[90vh] overflow-y-auto"
+          className="relative w-full max-w-2xl bg-[#0A0A0C] border border-sky-500/30 rounded-3xl p-6 sm:p-7 shadow-[0_0_50px_rgba(14,165,233,0.15)] flex flex-col gap-5 z-10 max-h-[90vh] overflow-y-auto"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
@@ -157,10 +194,10 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({ isOpen, 
               </div>
               <div>
                 <h2 className="text-base font-semibold text-white tracking-wide flex items-center gap-2 font-mono">
-                  VOICE SYNTHESIS CALIBRATION
+                  VOICE SYNTHESIS & LANGUAGE CALIBRATION
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Configure speech synthesis pitch, velocity, and neural voice models
+                  Configure speech synthesis pitch, velocity, neural dialect, and Hindi / English recognition
                 </p>
               </div>
             </div>
@@ -175,6 +212,41 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({ isOpen, 
             >
               <X className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* Language Selector Dropdown */}
+          <div className="bg-[#101014] border border-sky-500/20 rounded-2xl p-4 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="language-select-dropdown" className="text-xs font-mono text-white flex items-center gap-2 font-semibold">
+                <Languages className="w-4 h-4 text-sky-400" />
+                <span>PREFERRED LANGUAGE & RECOGNITION DIALECT</span>
+              </label>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/30">
+                {settings.language === "hi-IN"
+                  ? "🇮🇳 Hindi (हिंदी)"
+                  : settings.language === "en-GB"
+                  ? "🇬🇧 British English"
+                  : settings.language === "en-US"
+                  ? "🇺🇸 US English"
+                  : "🌐 Auto Bilingual"}
+              </span>
+            </div>
+
+            <select
+              id="language-select-dropdown"
+              value={settings.language || "auto"}
+              onChange={(e) => handleLanguageChange(e.target.value as any)}
+              className="w-full bg-[#16161c] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500/60 font-sans cursor-pointer transition-all"
+            >
+              <option value="auto">🌐 Auto-Detect Bilingual (English + Hindi / Hinglish)</option>
+              <option value="hi-IN">🇮🇳 Hindi (हिंदी - Bharat / India)</option>
+              <option value="en-US">🇺🇸 English (US / Global Accent)</option>
+              <option value="en-GB">🇬🇧 English (UK - Classic British JARVIS)</option>
+            </select>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Enables JARVIS to seamlessly recognize, process, and respond in both Hindi and English with natural neural phrasing.
+            </p>
           </div>
 
           {/* Presets Selection */}
@@ -296,7 +368,11 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({ isOpen, 
                 onChange={(e) => handleVoiceChange(e.target.value)}
                 className="w-full bg-[#101014] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500/50 font-sans cursor-pointer"
               >
-                <option value="">Default Neural Voice (Auto-detect British JARVIS cadence)</option>
+                <option value="">
+                  {settings.language === "hi-IN"
+                    ? "Auto Neural Hindi Voice (Lekha / Google हिन्दी / Swara)"
+                    : "Default Neural Voice (Auto-detect British JARVIS cadence)"}
+                </option>
                 {availableVoices.map((v) => (
                   <option key={v.voiceURI} value={v.voiceURI}>
                     {v.name} ({v.lang}) {v.default ? " — Default" : ""}
@@ -364,7 +440,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({ isOpen, 
                   if (isTesting) voiceManager.stopSpeaking();
                   onClose();
                 }}
-                className="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-semibold text-xs font-mono transition-all shadow-[0_0_15px_rgba(14,165,233,0.3)] flex items-center gap-1.5"
+                className="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-semibold text-xs font-mono transition-all shadow-[0_0_15px_rgba(14,165,233,0.3)] flex items-center gap-1.5 cursor-pointer"
               >
                 <Check className="w-4 h-4" />
                 <span>SAVE & CLOSE</span>

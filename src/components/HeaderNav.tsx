@@ -164,7 +164,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           }`}
         >
           <Globe className="w-3.5 h-3.5 text-sky-400" />
-          <span>BROWSER AGENT</span>
+          <span>BROWSER CONTROLLER</span>
         </button>
 
         <button

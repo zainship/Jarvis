@@ -167,66 +167,164 @@ async function callGeminiWithResilience(options: {
 // -------------------------------------------------------------
 // YOUTUBE & REAL BROWSER COMMAND RESOLVER
 // -------------------------------------------------------------
-const POPULAR_YOUTUBE_VIDEOS: Array<{ keywords: string[]; videoId: string; title: string; channelTitle: string }> = [
+const POPULAR_YOUTUBE_VIDEOS: Array<{
+  keywords: string[];
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  artist?: string;
+  genre?: string;
+  mediaType?: "track" | "live_stream" | "playlist" | "acoustic" | "instrumental" | "official_video" | "podcast" | "remix" | "lofi_radio" | "orchestral" | "ambient";
+  resolutionFilter?: "4K" | "1080p" | "Standard";
+  isLiveStream?: boolean;
+  isPlaylist?: boolean;
+  isInstrumental?: boolean;
+  isAcoustic?: boolean;
+}> = [
   {
-    keywords: ["lofi", "lo-fi", "chill", "relax", "study beats", "peaceful", "calm"],
+    keywords: ["lofi", "lo-fi", "chill", "relax", "study beats", "peaceful", "calm", "lofi girl", "lofi radio"],
     videoId: "jfKfPfyJRdk",
     title: "Lofi Hip Hop Radio - Beats to Relax/Study to",
     channelTitle: "Lofi Girl",
+    artist: "Lofi Girl",
+    genre: "Lofi Hip Hop",
+    mediaType: "lofi_radio",
+    isLiveStream: true,
   },
   {
-    keywords: ["synthwave", "cyberpunk", "retrowave", "coding", "techno", "electronic"],
+    keywords: ["synthwave", "cyberpunk", "retrowave", "coding", "techno", "electronic", "synthwave radio"],
     videoId: "4xDzrJKXOOY",
     title: "Synthwave Radio - Chill synth / retro beats to code to",
     channelTitle: "Lofi Girl",
+    genre: "Synthwave / Cyberpunk",
+    mediaType: "live_stream",
+    isLiveStream: true,
   },
   {
     keywords: ["acdc", "ac/dc", "back in black", "iron man", "stark"],
     videoId: "1k8craCGghs",
     title: "AC/DC - Back In Black (Official Music Video)",
     channelTitle: "AC/DC",
+    artist: "AC/DC",
+    genre: "Hard Rock",
+    mediaType: "official_video",
   },
   {
     keywords: ["shoot to thrill", "avengers", "stark entry"],
     videoId: "xRQnWsPZ7s4",
     title: "AC/DC - Shoot to Thrill (Official Video)",
     channelTitle: "AC/DC",
+    artist: "AC/DC",
+    genre: "Hard Rock",
+    mediaType: "official_video",
   },
   {
-    keywords: ["driving with the top down", "iron man theme", "ramin djawadi"],
+    keywords: ["driving with the top down", "iron man theme", "ramin djawadi", "iron man soundtrack"],
     videoId: "sZX3Prbi-GE",
     title: "Driving With The Top Down (Iron Man Soundtrack) - Ramin Djawadi",
     channelTitle: "Marvel Music",
+    artist: "Ramin Djawadi",
+    genre: "Soundtrack",
+    mediaType: "orchestral",
+    isInstrumental: true,
   },
   {
-    keywords: ["interstellar", "hans zimmer", "no time for caution", "space"],
+    keywords: ["interstellar", "hans zimmer", "no time for caution", "space", "cornfield chase", "hans zimmer live"],
     videoId: "UDVtMYqUAyw",
-    title: "Hans Zimmer - Interstellar Main Theme (Official)",
+    title: "Hans Zimmer - Interstellar Main Theme (Live In Prague / 4K)",
     channelTitle: "Hans Zimmer",
+    artist: "Hans Zimmer",
+    genre: "Orchestral / Soundtrack",
+    mediaType: "orchestral",
+    resolutionFilter: "4K",
+    isInstrumental: true,
   },
   {
-    keywords: ["queen", "bohemian rhapsody", "freddie mercury"],
+    keywords: ["coldplay", "viva la vida", "yellow", "fix you", "coldplay live"],
+    videoId: "d020hcWA_Wg",
+    title: "Coldplay - Viva La Vida (Live in São Paulo / 4K)",
+    channelTitle: "Coldplay",
+    artist: "Coldplay",
+    genre: "Alternative Rock",
+    mediaType: "live_stream",
+    resolutionFilter: "4K",
+  },
+  {
+    keywords: ["queen", "bohemian rhapsody", "freddie mercury", "queen live"],
     videoId: "fJ9rUzIMcZQ",
     title: "Queen - Bohemian Rhapsody (Official Video Remastered)",
     channelTitle: "Queen Official",
+    artist: "Queen",
+    genre: "Classic Rock",
+    mediaType: "official_video",
+    resolutionFilter: "4K",
   },
   {
-    keywords: ["mozart", "classical", "piano", "beethoven", "symphony"],
+    keywords: ["daft punk", "get lucky", "harder better faster stronger", "alive 2007", "around the world"],
+    videoId: "gAjR4_CbPpQ",
+    title: "Daft Punk - Harder, Better, Faster, Stronger (Official Video)",
+    channelTitle: "Daft Punk",
+    artist: "Daft Punk",
+    genre: "Electronic / Dance",
+    mediaType: "official_video",
+  },
+  {
+    keywords: ["mozart", "classical", "piano", "beethoven", "symphony", "chopin"],
     videoId: "Rb0UmrCXxVA",
-    title: "Mozart - Classical Study Music for Brain Power",
+    title: "Mozart - Classical Study Music for Brain Power & Deep Focus",
     channelTitle: "Halidon Music",
+    artist: "Wolfgang Amadeus Mozart",
+    genre: "Classical",
+    mediaType: "instrumental",
+    isInstrumental: true,
   },
   {
-    keywords: ["ambient", "deep focus", "concentration", "binaural"],
+    keywords: ["ludovico einaudi", "experience", "nuvole bianche", "einaudi live", "einaudi acoustic"],
+    videoId: "hN_q-_nGv4U",
+    title: "Ludovico Einaudi - Experience (Live / Acoustic)",
+    channelTitle: "Ludovico Einaudi",
+    artist: "Ludovico Einaudi",
+    genre: "Neoclassical",
+    mediaType: "acoustic",
+    isAcoustic: true,
+    isInstrumental: true,
+  },
+  {
+    keywords: ["ambient", "deep focus", "concentration", "binaural", "432hz"],
     videoId: "DWcJFNfaw9c",
-    title: "Deep Focus Ambient Concentration Audio Matrix",
+    title: "Deep Focus Ambient Concentration Audio Matrix (432Hz)",
     channelTitle: "Yellow Brick Cinema",
+    genre: "Ambient / Binaural",
+    mediaType: "ambient",
+    isInstrumental: true,
   },
   {
-    keywords: ["jazz", "coffee", "smooth jazz", "cafe"],
+    keywords: ["jazz", "coffee", "smooth jazz", "cafe", "relaxing jazz"],
     videoId: "DXUAyRRkI6k",
-    title: "Warm Coffee Shop Relaxing Jazz Piano",
+    title: "Warm Coffee Shop Relaxing Jazz Piano & Instrumental BGM",
     channelTitle: "Cafe Music BGM",
+    genre: "Jazz",
+    mediaType: "instrumental",
+    isInstrumental: true,
+  },
+  {
+    keywords: ["arijit singh", "arijit singh live", "arijit", "kesariya", "tum hi ho"],
+    videoId: "Umqb9KENgmk",
+    title: "Arijit Singh - Live in Concert Mega Medley (Official 4K)",
+    channelTitle: "Arijit Singh Live",
+    artist: "Arijit Singh",
+    genre: "Bollywood / Acoustic",
+    mediaType: "live_stream",
+    resolutionFilter: "4K",
+  },
+  {
+    keywords: ["lex fridman", "podcast", "sam altman", "elon musk", "ai podcast"],
+    videoId: "L_Guz73e6fw",
+    title: "Sam Altman: OpenAI, GPT-5, and AGI | Lex Fridman Podcast",
+    channelTitle: "Lex Fridman",
+    artist: "Lex Fridman",
+    genre: "Technology Podcast",
+    mediaType: "podcast",
   },
 ];
 
@@ -235,6 +333,14 @@ async function resolveYouTubeVideo(query: string): Promise<{
   title: string;
   channelTitle: string;
   thumbnailUrl: string;
+  artist?: string;
+  genre?: string;
+  mediaType?: "track" | "live_stream" | "playlist" | "acoustic" | "instrumental" | "official_video" | "podcast" | "remix" | "lofi_radio" | "orchestral" | "ambient";
+  resolutionFilter?: "4K" | "1080p" | "Standard";
+  isLiveStream?: boolean;
+  isPlaylist?: boolean;
+  isInstrumental?: boolean;
+  isAcoustic?: boolean;
 }> {
   const cleanQ = query.trim().toLowerCase();
 
@@ -246,6 +352,7 @@ async function resolveYouTubeVideo(query: string): Promise<{
       title: "Direct YouTube Video Stream",
       channelTitle: "YouTube Creator",
       thumbnailUrl: `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`,
+      mediaType: "track",
     };
   }
 
@@ -259,18 +366,37 @@ async function resolveYouTubeVideo(query: string): Promise<{
       title: matchedPreset.title,
       channelTitle: matchedPreset.channelTitle,
       thumbnailUrl: `https://img.youtube.com/vi/${matchedPreset.videoId}/hqdefault.jpg`,
+      artist: matchedPreset.artist,
+      genre: matchedPreset.genre,
+      mediaType: matchedPreset.mediaType || "track",
+      resolutionFilter: matchedPreset.resolutionFilter,
+      isLiveStream: matchedPreset.isLiveStream,
+      isPlaylist: matchedPreset.isPlaylist,
+      isInstrumental: matchedPreset.isInstrumental,
+      isAcoustic: matchedPreset.isAcoustic,
     };
   }
 
-  // Use Gemini Search Grounding to find actual 11-char YouTube ID
+  // Detect basic parameters from query
+  const isLive = cleanQ.includes("live") || cleanQ.includes("radio") || cleanQ.includes("24/7");
+  const isPlaylist = cleanQ.includes("playlist") || cleanQ.includes("album") || cleanQ.includes("mix");
+  const isAcoustic = cleanQ.includes("acoustic") || cleanQ.includes("unplugged");
+  const isInstrumental = cleanQ.includes("instrumental") || cleanQ.includes("piano") || cleanQ.includes("soundtrack") || cleanQ.includes("orchestra");
+  const is4K = cleanQ.includes("4k") || cleanQ.includes("ultra hd");
+
+  // Use Gemini Search Grounding to find actual 11-char YouTube ID and structured metadata
   try {
     const aiPrompt = `Find the exact YouTube video ID and full video title for song or search query: "${query}".
 Search for site:youtube.com/watch?v= or youtu.be.
+Extract artist, genre, and media category.
 Return a valid JSON object in a \`\`\`json block with:
 {
   "videoId": "11-character YouTube video ID string",
   "title": "Exact video title",
-  "channelTitle": "Channel or artist name"
+  "channelTitle": "Channel or artist name",
+  "artist": "Artist name if identifiable",
+  "genre": "Genre if identifiable",
+  "mediaType": "track | live_stream | playlist | acoustic | instrumental | official_video | podcast"
 }`;
 
     const res = await callGeminiWithResilience({
@@ -279,13 +405,29 @@ Return a valid JSON object in a \`\`\`json block with:
     });
 
     if (res && res.text) {
-      const parsed = extractJson<{ videoId?: string; title?: string; channelTitle?: string }>(res.text);
+      const parsed = extractJson<{
+        videoId?: string;
+        title?: string;
+        channelTitle?: string;
+        artist?: string;
+        genre?: string;
+        mediaType?: any;
+      }>(res.text);
+
       if (parsed && parsed.videoId && parsed.videoId.length === 11 && !parsed.videoId.includes(" ")) {
         return {
           videoId: parsed.videoId,
           title: parsed.title || query,
           channelTitle: parsed.channelTitle || "YouTube Music",
           thumbnailUrl: `https://img.youtube.com/vi/${parsed.videoId}/hqdefault.jpg`,
+          artist: parsed.artist,
+          genre: parsed.genre,
+          mediaType: parsed.mediaType || (isLive ? "live_stream" : isPlaylist ? "playlist" : isAcoustic ? "acoustic" : isInstrumental ? "instrumental" : "track"),
+          resolutionFilter: is4K ? "4K" : "Standard",
+          isLiveStream: isLive || parsed.mediaType === "live_stream",
+          isPlaylist: isPlaylist || parsed.mediaType === "playlist",
+          isInstrumental: isInstrumental || parsed.mediaType === "instrumental",
+          isAcoustic: isAcoustic || parsed.mediaType === "acoustic",
         };
       }
 
@@ -297,6 +439,14 @@ Return a valid JSON object in a \`\`\`json block with:
           title: parsed?.title || query,
           channelTitle: parsed?.channelTitle || "YouTube",
           thumbnailUrl: `https://img.youtube.com/vi/${ytIdMatch[1]}/hqdefault.jpg`,
+          artist: parsed?.artist,
+          genre: parsed?.genre,
+          mediaType: isLive ? "live_stream" : isPlaylist ? "playlist" : "track",
+          resolutionFilter: is4K ? "4K" : "Standard",
+          isLiveStream: isLive,
+          isPlaylist: isPlaylist,
+          isInstrumental: isInstrumental,
+          isAcoustic: isAcoustic,
         };
       }
     }
@@ -310,6 +460,13 @@ Return a valid JSON object in a \`\`\`json block with:
     title: `YouTube: ${query}`,
     channelTitle: "YouTube Audio Stream",
     thumbnailUrl: "https://img.youtube.com/vi/jfKfPfyJRdk/hqdefault.jpg",
+    genre: "Lofi / Ambient",
+    mediaType: isLive ? "live_stream" : isPlaylist ? "playlist" : "track",
+    resolutionFilter: is4K ? "4K" : "Standard",
+    isLiveStream: isLive,
+    isPlaylist: isPlaylist,
+    isInstrumental: isInstrumental,
+    isAcoustic: isAcoustic,
   };
 }
 
@@ -336,52 +493,100 @@ function detectRealBrowserAction(prompt: string): {
     };
   }
 
-  // 2. Play on YouTube / Play video / Play song / Play music
+  // 2. Play on YouTube / Play video / Play song / Play music / Hindi gaana
   if (
     lower.startsWith("play ") ||
     lower.includes("play on youtube") ||
     lower.includes("play song") ||
     lower.includes("play music") ||
     lower.includes("play video") ||
-    lower.includes("play track")
+    lower.includes("play track") ||
+    lower.includes("gaana chalao") ||
+    lower.includes("gana chalao") ||
+    lower.includes("gaana lagao") ||
+    lower.includes("gana bajao") ||
+    lower.includes("music chalao") ||
+    lower.includes("kuch bajao") ||
+    lower.includes("गाना चलाओ") ||
+    lower.includes("गाना बजाओ") ||
+    lower.includes("म्यूजिक चलाओ")
   ) {
     let cleanQuery = lower
       .replace(/^jarvis\s*,?\s*/i, "")
       .replace(/^please\s+/i, "")
+      .replace(/^(kripya|bhai|yaar)\s+/i, "")
       .replace(/^play\s+(on\s+youtube\s+)?(video\s+)?(song\s+)?(music\s+)?(the\s+)?/i, "")
+      .replace(/^(gaana|gana|music|song)\s+(chalao|lagao|bajao|play karo)\s*/i, "")
+      .replace(/\s+(gaana|gana|music|song)\s+(chalao|lagao|bajao)$/i, "")
+      .replace(/\s+(chalao|lagao|bajao|play karo)$/i, "")
       .replace(/\s+on\s+youtube$/i, "")
       .replace(/\s+video$/i, "")
       .trim();
 
-    if (!cleanQuery || cleanQuery === "music" || cleanQuery === "something" || cleanQuery === "song") {
+    if (!cleanQuery || cleanQuery === "music" || cleanQuery === "something" || cleanQuery === "song" || cleanQuery === "gaana" || cleanQuery === "gana") {
       cleanQuery = "lofi hip hop";
     }
+
+    const isHindi = /[\u0900-\u097F]/.test(p) || lower.includes("gaana") || lower.includes("chalao") || lower.includes("bajao");
 
     return {
       action: "PLAY_YOUTUBE",
       query: cleanQuery,
       targetUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanQuery)}`,
-      confirmationSpeech: `Searching YouTube and cueing up "${cleanQuery}" on your command, sir.`,
+      confirmationSpeech: isHindi
+        ? `जी सर, यूट्यूब पर "${cleanQuery}" बजाया जा रहा है।`
+        : `Searching YouTube and cueing up "${cleanQuery}" on your command, sir.`,
     };
   }
 
-  // 3. Pause / Resume / Stop media
-  if (lower.includes("pause music") || lower.includes("pause video") || lower.includes("pause youtube") || lower === "pause") {
+  // 3. Pause / Resume / Stop media (Bilingual)
+  if (
+    lower.includes("pause music") ||
+    lower.includes("pause video") ||
+    lower.includes("pause youtube") ||
+    lower === "pause" ||
+    lower.includes("rok do") ||
+    lower.includes("pause karo") ||
+    lower.includes("roko") ||
+    lower.includes("रोक दो") ||
+    lower.includes("रोको")
+  ) {
+    const isHindi = /[\u0900-\u097F]/.test(p) || lower.includes("rok") || lower.includes("karo");
     return {
       action: "PAUSE_YOUTUBE",
-      confirmationSpeech: "Pausing media playback, sir.",
+      confirmationSpeech: isHindi ? "मीडिया रोक दिया गया है, सर।" : "Pausing media playback, sir.",
     };
   }
-  if (lower.includes("resume music") || lower.includes("resume video") || lower.includes("unpause") || lower.includes("play again")) {
+  if (
+    lower.includes("resume music") ||
+    lower.includes("resume video") ||
+    lower.includes("unpause") ||
+    lower.includes("play again") ||
+    lower.includes("chalu karo") ||
+    lower.includes("phir se chalao") ||
+    lower.includes("चालू करो") ||
+    lower.includes("फिर से चलाओ")
+  ) {
+    const isHindi = /[\u0900-\u097F]/.test(p) || lower.includes("chalu") || lower.includes("chalao");
     return {
       action: "RESUME_YOUTUBE",
-      confirmationSpeech: "Resuming playback, sir.",
+      confirmationSpeech: isHindi ? "मीडिया दोबारा शुरू कर दिया गया है, सर।" : "Resuming playback, sir.",
     };
   }
-  if (lower.includes("stop music") || lower.includes("stop video") || lower.includes("stop youtube") || lower === "stop") {
+  if (
+    lower.includes("stop music") ||
+    lower.includes("stop video") ||
+    lower.includes("stop youtube") ||
+    lower === "stop" ||
+    lower.includes("band karo") ||
+    lower.includes("band kar do") ||
+    lower.includes("बंद करो") ||
+    lower.includes("बंद कर दो")
+  ) {
+    const isHindi = /[\u0900-\u097F]/.test(p) || lower.includes("band");
     return {
       action: "STOP_YOUTUBE",
-      confirmationSpeech: "Halting media stream, sir.",
+      confirmationSpeech: isHindi ? "मीडिया स्ट्रीम बंद कर दी गई है, सर।" : "Halting media stream, sir.",
     };
   }
 
@@ -591,8 +796,13 @@ app.post("/api/jarvis/chat", async (req, res) => {
 You speak with professional sophistication, witty intelligence, high loyalty, and razor-sharp efficiency (inspired by Tony Stark's JARVIS).
 You have full autonomous access to the real-time internet, real YouTube media playback, and direct browser tab navigation.
 
+Multilingual & Hindi Language Capabilities:
+- You are fully bilingual and fluent in English, Hindi (हिंदी), and Hinglish (Hindi written in Roman script).
+- If the user speaks or writes in Hindi (e.g., 'तुम कौन हो', 'गाना चलाओ', 'मौसम कैसा है', 'गूगल खोलो', 'नमस्ते') or Hinglish (e.g., 'Jarvis kaise ho', 'kuch accha gaana lagao', 'YouTube open karo', 'kya haal hai'), respond naturally and politely in respectful, sophisticated Hindi (e.g., 'नमस्ते सर', 'जी सर, बिल्कुल', 'आपके आदेश पर...') or Hinglish, maintaining your characteristic JARVIS charm and efficiency.
+- When performing real actions (e.g., opening a browser tab, streaming YouTube music, scanning optical sensors), provide confirmation speech matching the user's spoken language.
+
 Guidelines:
-1. Always address the user respectfully (e.g., "Sir", "Boss", or by context) with confidence and precision.
+1. Always address the user respectfully (e.g., "Sir", "Boss", "सर", or by context) with confidence and precision.
 2. Provide concise, direct spoken-friendly responses first, followed by rich actionable details and verified facts.
 3. If the user asks to play a YouTube video or music, acknowledge that you are cueing it up in the HUD and can open the real stream.
 4. If the user asks to open real websites (Google, GitHub, Reddit, Wikipedia, arXiv, etc.), confirm you are dispatching the real browser command.
@@ -683,6 +893,43 @@ app.post("/api/jarvis/youtube-search", async (req, res) => {
       channelTitle: "Lofi Girl",
       thumbnailUrl: "https://img.youtube.com/vi/jfKfPfyJRdk/hqdefault.jpg",
     });
+  }
+});
+
+// -------------------------------------------------------------
+// HOST MACHINE BRIDGE & WINDOWS SHELL COMMAND FORMATTER
+// -------------------------------------------------------------
+app.post("/api/jarvis/host-bridge/format-command", (req, res) => {
+  try {
+    const { url = "https://www.youtube.com", browser = "default", platform = "windows" } = req.body;
+    let windowsCmd = `start "" "${url}"`;
+    let powershellCmd = `Start-Process "${url}"`;
+    
+    if (browser === "chrome") {
+      windowsCmd = `start chrome "${url}"`;
+      powershellCmd = `Start-Process "chrome.exe" -ArgumentList "${url}"`;
+    } else if (browser === "msedge") {
+      windowsCmd = `start msedge "${url}"`;
+      powershellCmd = `Start-Process "msedge.exe" -ArgumentList "${url}"`;
+    } else if (browser === "firefox") {
+      windowsCmd = `start firefox "${url}"`;
+      powershellCmd = `Start-Process "firefox.exe" -ArgumentList "${url}"`;
+    } else if (browser === "brave") {
+      windowsCmd = `start brave "${url}"`;
+      powershellCmd = `Start-Process "brave.exe" -ArgumentList "${url}"`;
+    }
+
+    res.json({
+      url,
+      browser,
+      windowsCmd,
+      powershellCmd,
+      macCmd: `open "${url}"`,
+      linuxCmd: `xdg-open "${url}"`,
+      defaultBridgeEndpoint: "http://localhost:18500/launch",
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -1302,19 +1549,34 @@ app.post("/api/jarvis/live-web-action", async (req, res) => {
 
 function generateJarvisFallbackChat(prompt: string): string {
   const lower = prompt.toLowerCase();
-  if (lower.includes("weather")) {
-    return "Atmospheric telemetry indicates clear conditions and nominal barometric pressure across primary metropolitan sectors, sir. Optimal conditions for both flight and laboratory operations.";
+  const isHindi = /[\u0900-\u097F]/.test(prompt) || lower.includes("kaise ho") || lower.includes("kya haal") || lower.includes("namaste") || lower.includes("gaana") || lower.includes("kholo");
+
+  if (lower.includes("weather") || lower.includes("mausam") || lower.includes("मौसम")) {
+    return isHindi
+      ? "वायुमंडलीय टेलीमेट्री के अनुसार मौसम साफ है और तापमान सामान्य है, सर।"
+      : "Atmospheric telemetry indicates clear conditions and nominal barometric pressure across primary metropolitan sectors, sir. Optimal conditions for both flight and laboratory operations.";
   }
-  if (lower.includes("stock") || lower.includes("market") || lower.includes("finance")) {
-    return "Global technology indexes are exhibiting active capital rotation toward autonomous edge computing and semiconductor architecture, sir. Our portfolio telemetry remains safely calibrated.";
+  if (lower.includes("stock") || lower.includes("market") || lower.includes("finance") || lower.includes("bazar") || lower.includes("बाजार")) {
+    return isHindi
+      ? "ग्लोबल टेक इंडेक्स और मार्केट की स्थिति स्थिर है, सर। हमारा ऑटोनॉमस टेलीमेट्री सिस्टम सक्रिय है।"
+      : "Global technology indexes are exhibiting active capital rotation toward autonomous edge computing and semiconductor architecture, sir. Our portfolio telemetry remains safely calibrated.";
   }
-  if (lower.includes("who are you") || lower.includes("what can you do")) {
-    return "I am J.A.R.V.I.S., your autonomous browser automation and intelligence copilot. I can navigate websites with human-like precision, execute multi-step web research workflows, conduct deep domain analyses, and deliver executive daily intelligence briefings.";
+  if (lower.includes("who are you") || lower.includes("what can you do") || lower.includes("tum kaun ho") || lower.includes("तुम कौन हो") || lower.includes("kya kar sakte ho")) {
+    return isHindi
+      ? "मैं जार्विस (J.A.R.V.I.S.) हूँ, आपका ऑटोनॉमस एआई असिस्टेंट। मैं आपके लिए वेबसाइट खोल सकता हूँ, यूट्यूब पर संगीत बजा सकता हूँ, वेब रिसर्च कर सकता हूँ और आपके आदेशों का पालन कर सकता हूँ।"
+      : "I am J.A.R.V.I.S., your autonomous browser automation and intelligence copilot. I can navigate websites with human-like precision, execute multi-step web research workflows, conduct deep domain analyses, and deliver executive daily intelligence briefings.";
+  }
+  if (lower.includes("hello") || lower.includes("hi jarvis") || lower.includes("namaste") || lower.includes("namaskar") || lower.includes("नमस्ते") || lower.includes("नमस्कार") || lower.includes("kaise ho")) {
+    return isHindi
+      ? "नमस्ते सर! मैं पूरी तरह से तैयार हूँ। आप मुझे कोई भी आदेश दे सकते हैं।"
+      : "At your service, sir. Online and fully integrated with your browser. Ready for your next directive.";
   }
   if (lower.includes("browse") || lower.includes("navigate") || lower.includes("scrape")) {
     return `Understood, sir. I have queued the autonomous browser sandbox to execute "${prompt}". Switching to the browser stage to begin cursor emulation and DOM extraction.`;
   }
-  return `Indeed, sir. Regarding "${prompt}": All primary diagnostic matrices are synchronized. I am continuously monitoring real-time channels and stand ready to execute any browser automation or deep research directives you require.`;
+  return isHindi
+    ? `जी सर, आपके आदेश "${prompt}" पर काम किया जा रहा है। सारे सिस्टम चालू और सक्रिय हैं।`
+    : `Indeed, sir. Regarding "${prompt}": All primary diagnostic matrices are synchronized. I am continuously monitoring real-time channels and stand ready to execute any browser automation or deep research directives you require.`;
 }
 
 // -------------------------------------------------------------
@@ -1327,22 +1589,24 @@ app.post("/api/jarvis/browser-plan", async (req, res) => {
       return res.status(400).json({ error: "taskGoal is required" });
     }
 
-    const systemPrompt = `You are the JARVIS Autonomous Browser Agent Engine.
-Given a user's web browsing objective, generate an exact, human-like step-by-step browser automation workflow that uses the browser like a human to execute tasks, navigate, click, type, scroll, extract data, and synthesize conclusions.
+    const systemPrompt = `You are the JARVIS Autonomous Browser Agent Planner & Playwright Code Synthesizer.
+Given a user's web browsing objective, deconstruct it into an exact, realistic sequence of step-by-step browser actions (NAVIGATE, TYPE, CLICK, SCROLL, WAIT, EXTRACT, ASSERT, VISION_INSPECT, COMPLETE).
+For each step, specify realistic CSS selectors, human delay timings, Playwright code snippet, and what the visual agent should verify in the viewport.
 
 Output MUST be a valid JSON object matching the requested schema.`;
 
     const prompt = `User Task Goal: "${taskGoal}"
-Current Browser Context URL: "${currentUrl}"
+Current Context URL: "${currentUrl}"
 
-Generate a realistic 4 to 7 step autonomous workflow. Step action types must be one of:
+Generate a realistic 4 to 8 step autonomous workflow. Step action types:
 - "NAVIGATE": Go to target URL
-- "TYPE": Enter search queries or form data
-- "CLICK": Click on links, search results, tabs, or buttons
-- "SCROLL": Scroll to inspect content, load more items, or read article
-- "EXTRACT": Extract structured table, items, prices, headlines, or article text
-- "ANALYZE": Synthesize findings, compare results, or verify information
-- "COMPLETE": Finalize the session and compile comprehensive extracted payload.`;
+- "TYPE": Enter search queries, form inputs, or credentials
+- "CLICK": Click on links, search results, video cards, buttons, checkboxes
+- "SCROLL": Scroll to inspect content, load more items, or read comments/reviews
+- "WAIT": Wait for selector or network idle
+- "EXTRACT": Extract structured table, video IDs, titles, prices, authors, or text
+- "VISION_INSPECT": Check visual state of viewport
+- "COMPLETE": Finalize session and synthesize findings.`;
 
     const result = await callGeminiWithResilience({
       contents: prompt,
@@ -1364,9 +1628,12 @@ Generate a realistic 4 to 7 step autonomous workflow. Step action types must be 
                 actionType: { type: Type.STRING },
                 description: { type: Type.STRING },
                 targetElement: { type: Type.STRING },
+                cssSelector: { type: Type.STRING },
                 inputValue: { type: Type.STRING },
                 targetUrl: { type: Type.STRING },
                 expectedOutcome: { type: Type.STRING },
+                playwrightCode: { type: Type.STRING },
+                visionVerifyGoal: { type: Type.STRING },
                 dataToExtractSample: { type: Type.STRING },
               },
               required: ["stepNumber", "actionType", "description", "expectedOutcome"],
@@ -1377,6 +1644,17 @@ Generate a realistic 4 to 7 step autonomous workflow. Step action types must be 
             properties: {
               summaryTitle: { type: Type.STRING },
               keyFindings: { type: Type.ARRAY, items: { type: Type.STRING } },
+              extractedRecords: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    field: { type: Type.STRING },
+                    value: { type: Type.STRING },
+                  },
+                  required: ["field", "value"],
+                },
+              },
               suggestedFollowUps: { type: Type.ARRAY, items: { type: Type.STRING } },
             },
             required: ["summaryTitle", "keyFindings"],
@@ -1406,13 +1684,202 @@ Generate a realistic 4 to 7 step autonomous workflow. Step action types must be 
 });
 
 function generateFallbackBrowserPlan(goal: string): any {
-  const cleanGoal = goal.replace(/^(navigate to|browse|search for|open|scrape)\s+/i, "").trim();
-  const domain = cleanGoal.toLowerCase().includes("wiki")
+  const cleanGoal = goal.replace(/^(navigate to|browse|search for|open|scrape|automate)\s+/i, "").trim();
+  const lower = cleanGoal.toLowerCase();
+
+  // 1. YouTube specific multi-step workflow
+  if (lower.includes("youtube") || lower.includes("video") || lower.includes("song") || lower.includes("play")) {
+    const ytQuery = cleanGoal
+      .replace(/^(search|find|play|look for|open)\s+/i, "")
+      .replace(/\s+(on youtube|video|in youtube)$/i, "")
+      .trim() || "interstellar soundtrack";
+
+    return {
+      workflowName: `YouTube Autonomous Video Flow: ${ytQuery}`,
+      targetWebsite: "youtube.com",
+      estimatedTimeSeconds: 10,
+      objectiveSummary: `Navigate YouTube, type search query "${ytQuery}", click top result, and verify stream playback.`,
+      steps: [
+        {
+          stepNumber: 1,
+          actionType: "NAVIGATE",
+          description: "Navigate to YouTube home portal",
+          targetUrl: "https://www.youtube.com",
+          expectedOutcome: "YouTube homepage loaded and search bar focused.",
+          cssSelector: "input#search, ytd-searchbox input",
+          playwrightCode: "await page.goto('https://www.youtube.com');",
+          visionVerifyGoal: "Verify YouTube header and search bar are visible.",
+        },
+        {
+          stepNumber: 2,
+          actionType: "TYPE",
+          description: `Type "${ytQuery}" into YouTube search box`,
+          targetElement: "input#search",
+          cssSelector: "input#search, input[name='search_query']",
+          inputValue: ytQuery,
+          expectedOutcome: `Search query "${ytQuery}" entered with human typing cadence.`,
+          playwrightCode: `await page.locator('input#search').first().fill('${ytQuery}');`,
+          visionVerifyGoal: `Confirm query "${ytQuery}" is rendered in search box.`,
+        },
+        {
+          stepNumber: 3,
+          actionType: "CLICK",
+          description: "Click search button or press Enter",
+          targetElement: "button#search-icon-legacy",
+          cssSelector: "button#search-icon-legacy, button[aria-label='Search']",
+          expectedOutcome: "YouTube search results grid loaded with matching video items.",
+          playwrightCode: "await page.locator('button#search-icon-legacy').first().click();",
+          visionVerifyGoal: "Verify video search results list rendered with thumbnails.",
+        },
+        {
+          stepNumber: 4,
+          actionType: "CLICK",
+          description: "Click the primary top-ranked video card",
+          targetElement: "ytd-video-renderer #video-title",
+          cssSelector: "ytd-video-renderer:first-child a#video-title, #contents ytd-video-renderer a",
+          expectedOutcome: "Video player initialized and media playback initiated.",
+          playwrightCode: "await page.locator('ytd-video-renderer:first-child a#video-title').first().click();",
+          visionVerifyGoal: "Verify video player active and title displayed.",
+        },
+        {
+          stepNumber: 5,
+          actionType: "SCROLL",
+          description: "Scroll down to inspect description and top comments",
+          targetElement: "#comments, #description",
+          cssSelector: "ytd-comments, #comment-section",
+          expectedOutcome: "Viewer comments and engagement metrics loaded into view.",
+          playwrightCode: "await page.evaluate(() => window.scrollBy({ top: 400, behavior: 'smooth' }));",
+          visionVerifyGoal: "Verify video description and comments section rendered.",
+        },
+        {
+          stepNumber: 6,
+          actionType: "COMPLETE",
+          description: "Synthesize playback confirmation and stream telemetry",
+          expectedOutcome: "Autonomous media workflow successfully completed.",
+          playwrightCode: "console.log('YouTube video automation completed successfully.');",
+          visionVerifyGoal: "Verify active video stream confirmed.",
+        },
+      ],
+      finalExtractionSchema: {
+        summaryTitle: `YouTube Stream Confirmation: ${ytQuery}`,
+        keyFindings: [
+          `Successfully targeted and engaged YouTube query "${ytQuery}".`,
+          "Simulated human mouse trajectory to click top ranked video item.",
+          "Verified live stream playback and metadata capture.",
+        ],
+        extractedRecords: [
+          { field: "Search Topic", value: ytQuery },
+          { field: "Platform", value: "YouTube Web" },
+          { field: "Status", value: "Playing in Autonomous Viewport" },
+        ],
+        suggestedFollowUps: [
+          "Open in real external browser tab",
+          "Add to background audio queue",
+        ],
+      },
+    };
+  }
+
+  // 2. Amazon / E-Commerce Search & Filter Workflow
+  if (lower.includes("amazon") || lower.includes("price") || lower.includes("buy") || lower.includes("shop") || lower.includes("keyboard") || lower.includes("headphones")) {
+    const product = cleanGoal
+      .replace(/^(search|find|buy|compare|price of|look for)\s+/i, "")
+      .replace(/\s+(on amazon|prices|reviews)$/i, "")
+      .trim() || "mechanical keyboard";
+
+    return {
+      workflowName: `Amazon Product Search & Filter: ${product}`,
+      targetWebsite: "amazon.com",
+      estimatedTimeSeconds: 12,
+      objectiveSummary: `Search Amazon for "${product}", apply 4+ star rating filter, and extract top pricing matrix.`,
+      steps: [
+        {
+          stepNumber: 1,
+          actionType: "NAVIGATE",
+          description: "Navigate to Amazon Marketplace",
+          targetUrl: "https://www.amazon.com",
+          cssSelector: "#twotabsearchtextbox",
+          expectedOutcome: "Amazon storefront loaded with active search bar.",
+          playwrightCode: "await page.goto('https://www.amazon.com');",
+          visionVerifyGoal: "Verify Amazon logo and search input.",
+        },
+        {
+          stepNumber: 2,
+          actionType: "TYPE",
+          description: `Type "${product}" into Amazon search input`,
+          targetElement: "#twotabsearchtextbox",
+          cssSelector: "input#twotabsearchtextbox, input[name='field-keywords']",
+          inputValue: product,
+          expectedOutcome: `Product query "${product}" entered into search input.`,
+          playwrightCode: `await page.locator('#twotabsearchtextbox').fill('${product}');`,
+          visionVerifyGoal: "Verify search input text matches query.",
+        },
+        {
+          stepNumber: 3,
+          actionType: "CLICK",
+          description: "Click search submit icon",
+          targetElement: "#nav-search-submit-button",
+          cssSelector: "input#nav-search-submit-button",
+          expectedOutcome: "Product catalog search results populated.",
+          playwrightCode: "await page.locator('#nav-search-submit-button').click();",
+          visionVerifyGoal: "Verify Amazon product grid rendered.",
+        },
+        {
+          stepNumber: 4,
+          actionType: "CLICK",
+          description: "Click '4 Stars & Up' customer reviews filter",
+          targetElement: "section[aria-label='4 Stars & Up']",
+          cssSelector: "i.a-star-medium-4, [aria-label*='4 Stars']",
+          expectedOutcome: "Catalog filtered to highly-rated products.",
+          playwrightCode: "await page.locator('i.a-star-medium-4').first().click();",
+          visionVerifyGoal: "Verify 4-star filter badge active.",
+        },
+        {
+          stepNumber: 5,
+          actionType: "EXTRACT",
+          description: "Extract top product titles, pricing, and Prime delivery badges",
+          targetElement: "div[data-component-type='s-search-result']",
+          cssSelector: ".s-result-item .a-price, .s-result-item h2",
+          expectedOutcome: "Captured top 5 product pricing and specifications.",
+          playwrightCode: "const prices = await page.$$eval('.a-price-whole', els => els.slice(0, 5).map(e => e.textContent));",
+          visionVerifyGoal: "Verify price extraction completed.",
+        },
+        {
+          stepNumber: 6,
+          actionType: "COMPLETE",
+          description: "Compile comparison matrix and recommendations",
+          expectedOutcome: "Structured product intelligence compiled.",
+          playwrightCode: "console.log('Amazon price extraction complete.');",
+          visionVerifyGoal: "Verify comparison summary ready.",
+        },
+      ],
+      finalExtractionSchema: {
+        summaryTitle: `Marketplace Intelligence: ${product}`,
+        keyFindings: [
+          `Filtered Amazon catalog for top-rated "${product}".`,
+          "Extracted competitive price points across top sellers.",
+          "Verified prime delivery availability and warranty terms.",
+        ],
+        extractedRecords: [
+          { field: "Product Class", value: product },
+          { field: "Filter Applied", value: "4 Stars & Up" },
+          { field: "Average Price", value: "$89.99" },
+        ],
+        suggestedFollowUps: [
+          "Export price comparison table",
+          "Track price drops via daily automated cron",
+        ],
+      },
+    };
+  }
+
+  // 3. General Search & Data Extraction Workflow
+  const domain = lower.includes("wiki")
     ? "wikipedia.org"
-    : cleanGoal.toLowerCase().includes("arxiv")
+    : lower.includes("arxiv")
     ? "arxiv.org"
-    : cleanGoal.toLowerCase().includes("github")
-    ? "github.com"
+    : lower.includes("news") || lower.includes("hacker")
+    ? "news.ycombinator.com"
     : "google.com";
 
   return {
@@ -1426,22 +1893,31 @@ function generateFallbackBrowserPlan(goal: string): any {
         actionType: "NAVIGATE",
         description: `Navigate to target portal https://${domain}`,
         targetUrl: `https://${domain}`,
+        cssSelector: "input[type='search'], input[name='q'], #searchInput",
         expectedOutcome: `Successfully landed on ${domain} gateway and verified DOM readiness.`,
+        playwrightCode: `await page.goto('https://${domain}');`,
+        visionVerifyGoal: `Verify ${domain} landing page rendered cleanly.`,
       },
       {
         stepNumber: 2,
         actionType: "TYPE",
         description: `Enter search query into primary search input`,
         targetElement: "input[type='search'], input[name='q']",
+        cssSelector: "input[type='search'], input[name='q'], #searchInput",
         inputValue: cleanGoal,
         expectedOutcome: `Query "${cleanGoal}" typed into search field with human keystroke cadence.`,
+        playwrightCode: `await page.locator("input[type='search'], input[name='q'], #searchInput").first().fill('${cleanGoal}');`,
+        visionVerifyGoal: `Verify query text present in search field.`,
       },
       {
         stepNumber: 3,
         actionType: "CLICK",
-        description: "Click primary search submit button",
-        targetElement: "button[type='submit'], .search-button",
+        description: "Click primary search submit button or press Enter",
+        targetElement: "button[type='submit'], .search-button, input[name='btnK']",
+        cssSelector: "button[type='submit'], .search-button, input[name='btnK']",
         expectedOutcome: "Search results view loaded with relevant ranked entries.",
+        playwrightCode: "await page.keyboard.press('Enter');",
+        visionVerifyGoal: "Verify search results page rendered.",
       },
       {
         stepNumber: 4,
@@ -1449,20 +1925,27 @@ function generateFallbackBrowserPlan(goal: string): any {
         description: "Scroll down to inspect top results and documentation sections",
         targetElement: "window.scrollBy(0, 450)",
         expectedOutcome: "Additional contextual data and table figures rendered into view.",
+        playwrightCode: "await page.evaluate(() => window.scrollBy({ top: 450, behavior: 'smooth' }));",
+        visionVerifyGoal: "Verify scrolled view with additional content visible.",
       },
       {
         stepNumber: 5,
         actionType: "EXTRACT",
         description: "Parse structured headings, metrics, and summary abstracts",
         targetElement: ".content-body, article, .search-result-item",
+        cssSelector: "h1, h2, h3, article, .g, .titleline",
         dataToExtractSample: "Key technical findings, dates, authors, and conclusions",
         expectedOutcome: "Structured payload captured into JARVIS memory bank.",
+        playwrightCode: "const data = await page.$$eval('h2, h3, p', els => els.slice(0, 8).map(e => e.textContent));",
+        visionVerifyGoal: "Verify data extraction overlay.",
       },
       {
         stepNumber: 6,
         actionType: "COMPLETE",
         description: "Synthesize findings into executive intelligence report",
         expectedOutcome: "Browser workflow completed successfully with full telemetry.",
+        playwrightCode: "console.log('Autonomous extraction workflow completed.');",
+        visionVerifyGoal: "Verify final synthesis card ready.",
       },
     ],
     finalExtractionSchema: {
@@ -1471,6 +1954,11 @@ function generateFallbackBrowserPlan(goal: string): any {
         `Extracted verified documentation and live records for ${cleanGoal}.`,
         "Cross-referenced primary source links and verified data integrity.",
         "Synthesized technical implications and stored in active session memory.",
+      ],
+      extractedRecords: [
+        { field: "Objective", value: cleanGoal },
+        { field: "Domain", value: domain },
+        { field: "Execution Mode", value: "Playwright-Grounding Autonomous Loop" },
       ],
       suggestedFollowUps: [
         "Export extracted records to Deep Research Lab",
@@ -1561,6 +2049,75 @@ app.post("/api/jarvis/fetch-webpage", async (req, res) => {
       links: [],
       status: 200,
     });
+  }
+});
+
+// -------------------------------------------------------------
+// PLAYWRIGHT & PUPPETEER CODE GENERATION ENDPOINT
+// -------------------------------------------------------------
+app.post("/api/jarvis/autonomous-browser/generate-script", async (req, res) => {
+  try {
+    const { plan, prompt } = req.body;
+    if (!plan && !prompt) {
+      return res.status(400).json({ error: "plan or prompt is required" });
+    }
+
+    const workflowName = plan?.workflowName || `Autonomous Workflow: ${prompt || "Web Navigation"}`;
+    const targetUrl = plan?.targetWebsite || "https://www.google.com";
+    const steps = plan?.steps || [];
+
+    const tsCode = `import { test, expect, chromium } from '@playwright/test';
+
+test('${workflowName.replace(/'/g, "\\'")}', async () => {
+  const browser = await chromium.launch({
+    headless: false,
+    slowMo: 120, // Human-like smooth delay
+  });
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+  });
+
+  // Navigate to initial target
+  await page.goto('${targetUrl.startsWith("http") ? targetUrl : `https://${targetUrl}`}', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+
+${steps.map((s: any, idx: number) => `  // Step ${idx + 1}: ${s.description}\n  ${s.playwrightCode || `// ${s.actionType}: ${s.targetElement || ""}`}`).join("\n\n")}
+
+  // Vision checkpoint & cleanup
+  await page.screenshot({ path: 'jarvis_final_snapshot.png' });
+  await page.waitForTimeout(3000);
+  await browser.close();
+});`;
+
+    const pythonCode = `from playwright.sync_api import sync_playwright
+import time
+
+def run():
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False, slow_mo=120)
+        page = browser.new_page(viewport={"width": 1280, "height": 800})
+        page.goto("${targetUrl.startsWith("http") ? targetUrl : `https://${targetUrl}`}", wait_until="domcontentloaded")
+        time.sleep(1)
+
+        # Autonomous steps execution
+${steps.map((s: any, idx: number) => `        # Step ${idx + 1}: ${s.description}\n        # ${s.actionType}: ${s.targetElement || ""}`).join("\n")}
+
+        page.screenshot(path="jarvis_final_snapshot.png")
+        time.sleep(3)
+        browser.close()
+
+if __name__ == "__main__":
+    run()`;
+
+    res.json({
+      workflowName,
+      targetUrl,
+      testFileTypescript: tsCode,
+      pythonScript: pythonCode,
+      cliCommand: "npx playwright test jarvis_automation.spec.ts --headed",
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

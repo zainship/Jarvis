@@ -85,6 +85,7 @@
         "rate": { "type": "number" },
         "voiceURI": { "type": "string", "maxLength": 512 },
         "presetName": { "type": "string", "maxLength": 128 },
+        "language": { "type": "string", "maxLength": 32 },
         "updatedAt": { "type": "string" }
       },
       "required": ["userId", "pitch", "rate", "updatedAt"]

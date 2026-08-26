@@ -86,8 +86,17 @@ export async function testFirestoreConnection(): Promise<boolean> {
     await getDocFromServer(doc(db, "test", "connection"));
     return true;
   } catch (error: any) {
-    if (error instanceof Error && error.message.includes("the client is offline")) {
-      console.warn("Firestore client appears offline. Retrying with local cache.");
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    const errorCode = (error && typeof error === "object" && "code" in error) ? (error as any).code : "";
+    if (
+      errorCode === "unavailable" ||
+      errorMsg.includes("the client is offline") ||
+      errorMsg.includes("unavailable") ||
+      errorMsg.includes("Could not reach Cloud Firestore")
+    ) {
+      console.warn("Firestore connection check: operating in resilient offline/local mode while backend establishes connection.");
+    } else {
+      console.warn("Firestore connection status:", errorMsg);
     }
     return false;
   }
@@ -257,6 +266,7 @@ export async function syncVoiceSettingsToFirestore(
     rate: number;
     voiceURI?: string;
     presetName?: string;
+    language?: string;
   }
 ) {
   const path = `users/${userId}/settings/voice`;
@@ -269,6 +279,7 @@ export async function syncVoiceSettingsToFirestore(
         rate: settings.rate,
         voiceURI: settings.voiceURI || "",
         presetName: settings.presetName || "Custom",
+        language: settings.language || "auto",
         updatedAt: new Date().toISOString(),
       },
       { merge: true }

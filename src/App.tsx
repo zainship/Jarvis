@@ -15,12 +15,15 @@ import { FocusModeHUD } from "./components/FocusModeHUD";
 import { VoiceSettingsModal } from "./components/VoiceSettingsModal";
 import { YouTubeMediaHUD } from "./components/YouTubeMediaHUD";
 import { VisionOpticsHUD } from "./components/VisionOpticsHUD";
+import { RealBrowserBridge } from "./components/RealBrowserBridge";
 import { ChatMessage, JarvisState, BrowserWorkflowPlan, YouTubeMedia, RealBrowserAction, VisionAnalysisResult } from "./types";
 import { voiceManager } from "./utils/voiceManager";
 import { SoundFX } from "./utils/soundEffects";
-import { processLocalJarvisHeuristics } from "./utils/localJarvisBrain";
+import { processLocalJarvisHeuristics, SystemActionDirective } from "./utils/localJarvisBrain";
 import { resolveVoiceToWebsite } from "./utils/urlResolver";
-import { Globe, ArrowUpRight, X } from "lucide-react";
+import { parsePrecisionMedia, ParsedMediaDirective } from "./utils/mediaParser";
+import { hostBridgeManager } from "./utils/hostBridgeManager";
+import { Globe, ArrowUpRight, X, Terminal, Copy, Check, Zap } from "lucide-react";
 import {
   auth,
   db,
@@ -46,15 +49,28 @@ export default function App() {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState(false);
   const [isVisionOpen, setIsVisionOpen] = useState(false);
+  const [systemVolume, setSystemVolume] = useState<number>(85);
   const [activeYouTubeMedia, setActiveYouTubeMedia] = useState<YouTubeMedia | null>(null);
   const [activeTabDispatch, setActiveTabDispatch] = useState<{
     url: string;
     title: string;
     timestamp: number;
+    windowsCommand?: string;
+    powershellCommand?: string;
+    bridgeStatus?: string;
   } | null>(null);
+  const [copiedToastCmd, setCopiedToastCmd] = useState(false);
 
-  // Cross-component Browser Workflow Trigger
+  // Cross-component Browser Workflow & Action Triggers
   const [pendingBrowserWorkflow, setPendingBrowserWorkflow] = useState<BrowserWorkflowPlan | null>(null);
+  const [browserSandboxUrl, setBrowserSandboxUrl] = useState<string>("https://www.youtube.com");
+  const [browserControlMode, setBrowserControlMode] = useState<"real" | "sandbox">("real");
+  const [pendingResearchTopic, setPendingResearchTopic] = useState<string | null>(null);
+  const [pendingNewTask, setPendingNewTask] = useState<{
+    title: string;
+    category?: "work" | "research" | "automation" | "personal";
+    priority?: "low" | "medium" | "high";
+  } | null>(null);
 
   // Conversation history
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -86,6 +102,7 @@ export default function App() {
               rate: voiceData.rate,
               voiceURI: voiceData.voiceURI,
               presetName: voiceData.presetName,
+              language: voiceData.language || "auto",
             });
           }
         } catch (e) {
@@ -210,71 +227,101 @@ export default function App() {
     });
   }, [isMuted]);
 
-  // Real Browser Tab Safe Opener with Dual-Execution Strategy & Floating Toast
-  const openBrowserTabSafely = useCallback((url: string, name?: string) => {
+  // Real Browser Tab Safe Opener with Dual-Execution Strategy, Host Bridge & Floating Toast
+  const openBrowserTabSafely = useCallback((url: string, name?: string, actionType: any = "OPEN_TAB", videoId?: string) => {
     SoundFX.playComputeChime();
     const formattedUrl = url.startsWith("http://") || url.startsWith("https://") ? url : `https://${url}`;
     const siteTitle = name || url;
 
-    // 1. Direct window.open attempt
+    // Direct browser attempt
     try {
-      const win = window.open(formattedUrl, "_blank", "noopener,noreferrer");
-      if (win) win.focus();
+      window.open(formattedUrl, "_blank", "noopener,noreferrer");
     } catch (e) {
-      console.warn("window.open blocked or restricted:", e);
+      console.log("Direct window.open handled:", e);
     }
+    setBrowserSandboxUrl(formattedUrl);
 
-    // 2. Dynamic Invisible Anchor fallback for browser security policies
-    try {
-      const a = document.createElement("a");
-      a.href = formattedUrl;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        if (document.body.contains(a)) document.body.removeChild(a);
-      }, 150);
-    } catch (e) {}
-
-    // 3. Set global Active Tab Dispatch notification banner
-    setActiveTabDispatch({
-      url: formattedUrl,
+    // Dispatch host execution via multi-strategy pipeline (Local Node bridge, Webhook, URI scheme, and window.open)
+    hostBridgeManager.dispatchHostExecution({
+      action: actionType,
+      targetUrl: formattedUrl,
       title: siteTitle,
-      timestamp: Date.now(),
+      videoId,
+    }).then((event) => {
+      setActiveTabDispatch({
+        url: formattedUrl,
+        title: siteTitle,
+        timestamp: Date.now(),
+        windowsCommand: event.windowsCommand,
+        powershellCommand: event.powershellCommand,
+        bridgeStatus: event.status,
+      });
+    }).catch(() => {
+      setActiveTabDispatch({
+        url: formattedUrl,
+        title: siteTitle,
+        timestamp: Date.now(),
+        windowsCommand: hostBridgeManager.generateWindowsCommand(formattedUrl),
+      });
     });
   }, []);
 
-  // Real YouTube Video Search and Playback Dispatcher
-  const handlePlayYouTube = useCallback(async (query: string) => {
+  // Real YouTube Video Search and Playback Dispatcher with Precision Directives & Ambient Feedback
+  const handlePlayYouTube = useCallback(async (query: string, parsedDirective?: ParsedMediaDirective) => {
     SoundFX.playComputeChime();
     try {
       const res = await fetch("/api/jarvis/youtube-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, directive: parsedDirective }),
       });
       const data = await res.json();
       if (data.media) {
-        setActiveYouTubeMedia(data.media);
-        const ytUrl = `https://www.youtube.com/watch?v=${data.media.videoId}`;
+        // Enforce volume and precision properties
+        const enrichedMedia: YouTubeMedia = {
+          ...data.media,
+          volume: systemVolume,
+          artist: parsedDirective?.artist || data.media.artist,
+          genre: parsedDirective?.genre || data.media.genre,
+          mediaType: parsedDirective?.mediaType || data.media.mediaType,
+          resolutionFilter: parsedDirective?.resolutionFilter || data.media.resolutionFilter,
+          isLiveStream: parsedDirective?.isLiveStream ?? data.media.isLiveStream,
+          isPlaylist: parsedDirective?.isPlaylist ?? data.media.isPlaylist,
+          isInstrumental: parsedDirective?.isInstrumental ?? data.media.isInstrumental,
+          isAcoustic: parsedDirective?.isAcoustic ?? data.media.isAcoustic,
+        };
 
-        // Safe tab dispatch
-        openBrowserTabSafely(ytUrl, data.media.title);
+        setActiveYouTubeMedia(enrichedMedia);
+        const ytUrl = `https://www.youtube.com/watch?v=${enrichedMedia.videoId}`;
 
-        const jarvisAck = `Now streaming "${data.media.title}" on YouTube media player, sir.`;
+        // Safe tab & Windows host bridge dispatch
+        openBrowserTabSafely(ytUrl, enrichedMedia.title, "PLAY_YOUTUBE", enrichedMedia.videoId);
+
+        const winCmd = hostBridgeManager.generateWindowsCommand(ytUrl);
+        const psCmd = hostBridgeManager.generatePowerShellCommand(ytUrl);
+
+        const isHindi = /[\u0900-\u097F]/.test(query) || query.includes("gaana") || query.includes("chalao");
+        const jarvisAck = parsedDirective?.ambientVoiceFeedback || (
+          isHindi
+            ? `यूट्यूब पर "${enrichedMedia.title}" बजाया जा रहा है, सर।`
+            : `Initiating playback sequence, sir. Now streaming "${enrichedMedia.title}" on YouTube.`
+        );
+
         const jarvisMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           sender: "jarvis",
           text: jarvisAck,
           timestamp: new Date().toISOString(),
-          youtubeMedia: data.media,
+          youtubeMedia: enrichedMedia,
           realBrowserAction: {
             action: "PLAY_YOUTUBE",
             targetUrl: ytUrl,
-            videoId: data.media.videoId,
-            videoTitle: data.media.title,
+            videoId: enrichedMedia.videoId,
+            videoTitle: enrichedMedia.title,
             confirmationSpeech: jarvisAck,
+            hostCommandWindows: winCmd,
+            hostCommandPowerShell: psCmd,
+            bridgeDispatched: true,
           },
         };
         setMessages((prev) => [...prev, jarvisMsg]);
@@ -286,15 +333,21 @@ export default function App() {
     } catch (err) {
       console.error("YouTube search error:", err);
     }
-  }, [handleSpeak, openBrowserTabSafely]);
+  }, [handleSpeak, openBrowserTabSafely, systemVolume]);
 
   // Real Browser Tab Dispatcher
   const handleOpenRealTab = useCallback((url: string, name?: string) => {
     const formattedUrl = url.startsWith("http://") || url.startsWith("https://") ? url : `https://${url}`;
     const siteTitle = name || url;
     
-    openBrowserTabSafely(formattedUrl, siteTitle);
+    // Switch active view directly to the interactive browser sandbox so the user sees the page execute
+    setActiveTab("browser");
+    setBrowserSandboxUrl(formattedUrl);
+    
+    openBrowserTabSafely(formattedUrl, siteTitle, "OPEN_TAB");
 
+    const winCmd = hostBridgeManager.generateWindowsCommand(formattedUrl);
+    const psCmd = hostBridgeManager.generatePowerShellCommand(formattedUrl);
     const jarvisAck = `Launching ${siteTitle} in an active browser tab, sir.`;
     const jarvisMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
@@ -306,6 +359,9 @@ export default function App() {
         targetUrl: formattedUrl,
         query: siteTitle,
         confirmationSpeech: jarvisAck,
+        hostCommandWindows: winCmd,
+        hostCommandPowerShell: psCmd,
+        bridgeDispatched: true,
       },
     };
 
@@ -426,23 +482,89 @@ export default function App() {
       return;
     }
 
-    // Fast-path Real YouTube Voice commands (e.g. "play acdc", "play lofi", "play interstellar on youtube")
-    if (
-      (lower.startsWith("play ") || lower.includes("play on youtube") || lower.includes("play song") || lower.includes("play video")) &&
-      !lower.includes("workflow")
-    ) {
-      const songQuery = text
-        .replace(/^(jarvis|jarvis,|please)\s+/i, "")
-        .replace(/^play\s+/i, "")
-        .replace(/\s+on\s+youtube/i, "")
-        .trim();
+    // Fast-path System State Awareness, Volume Shortcuts & Tab Controls
+    const localCheck = processLocalJarvisHeuristics(text);
+    if (localCheck.systemAction) {
+      const action = localCheck.systemAction;
+      let ackText = localCheck.text;
 
-      if (songQuery) {
-        await handlePlayYouTube(songQuery);
-        setIsProcessing(false);
-        setJarvisState("idle");
-        return;
+      if (action.type === "SET_VOLUME" && action.volumeLevel !== undefined) {
+        const newVol = action.volumeLevel;
+        setSystemVolume(newVol);
+        SoundFX.setMasterVolume(newVol / 100);
+        voiceManager.setVolume(newVol / 100);
+        setActiveYouTubeMedia((prev) => (prev ? { ...prev, volume: newVol } : null));
+      } else if (action.type === "INCREASE_VOLUME") {
+        setSystemVolume((prev) => {
+          const next = Math.min(100, prev + (action.delta || 15));
+          SoundFX.setMasterVolume(next / 100);
+          voiceManager.setVolume(next / 100);
+          setActiveYouTubeMedia((p) => (p ? { ...p, volume: next } : null));
+          return next;
+        });
+      } else if (action.type === "DECREASE_VOLUME") {
+        setSystemVolume((prev) => {
+          const next = Math.max(0, prev - (action.delta || 15));
+          SoundFX.setMasterVolume(next / 100);
+          voiceManager.setVolume(next / 100);
+          setActiveYouTubeMedia((p) => (p ? { ...p, volume: next } : null));
+          return next;
+        });
+      } else if (action.type === "MUTE") {
+        setIsMuted(true);
+        SoundFX.setEnabled(false);
+      } else if (action.type === "UNMUTE") {
+        setIsMuted(false);
+        SoundFX.setEnabled(true);
+      } else if (action.type === "SWITCH_TAB" && action.targetTab) {
+        setActiveTab(action.targetTab);
+        if (action.browserUrl) {
+          setBrowserSandboxUrl(action.browserUrl);
+        }
+      } else if (action.type === "CLOSE_TAB") {
+        setActiveTabDispatch(null);
+        setActiveYouTubeMedia(null);
+      } else if (action.type === "TOGGLE_VISION") {
+        setIsVisionOpen(true);
+      } else if (action.type === "ADD_TASK") {
+        if (action.targetTab) setActiveTab(action.targetTab);
+        setPendingNewTask({
+          title: action.taskTitle || "New Task",
+          category: action.taskCategory || "work",
+          priority: action.taskPriority || "medium",
+        });
+      } else if (action.type === "START_RESEARCH") {
+        if (action.targetTab) setActiveTab(action.targetTab);
+        setPendingResearchTopic(action.researchTopic || text);
+      } else if (action.type === "OPEN_BROWSER_URL") {
+        if (action.browserUrl) {
+          handleOpenRealTab(action.browserUrl);
+        }
       }
+
+      const jarvisMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: "jarvis",
+        text: ackText,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, jarvisMsg]);
+      if (auth.currentUser) {
+        syncMessageToFirestore(auth.currentUser.uid, jarvisMsg).catch(console.error);
+      }
+      handleSpeak(ackText);
+      setIsProcessing(false);
+      setJarvisState("idle");
+      return;
+    }
+
+    // Fast-path Precision Media Parsing & Ambient Feedback (e.g., "play interstellar soundtrack in 4k", "play ac/dc back in black", "play lofi hip hop")
+    const parsedMedia = parsePrecisionMedia(text);
+    if (parsedMedia && parsedMedia.isMediaCommand && !lower.includes("workflow")) {
+      await handlePlayYouTube(parsedMedia.cleanSearchQuery, parsedMedia);
+      setIsProcessing(false);
+      setJarvisState("idle");
+      return;
     }
 
     // Fast-path Media Controls: "pause music", "stop video", "resume music"
@@ -473,7 +595,72 @@ export default function App() {
       return;
     }
 
-    // Universal Fast-path Real Website & Navigation Resolver (Supports ALL websites, custom domains, search queries, etc.)
+    // Intent 1: High-Priority Autonomous Browser Workflow & Multi-Step Agent Commands
+    // (e.g. "search youtube for interstellar soundtrack and click first video", "search amazon for mechanical keyboard and extract pricing", "automate wikipedia research", etc.)
+    const isCompoundBrowserTask =
+      lower.includes(" and click") ||
+      lower.includes(" and scroll") ||
+      lower.includes(" and type") ||
+      lower.includes(" and extract") ||
+      lower.includes(" and play") ||
+      lower.includes(" and filter") ||
+      lower.includes(" and select") ||
+      lower.includes(" and search") ||
+      lower.includes(" and buy") ||
+      lower.startsWith("automate ") ||
+      lower.startsWith("autonomous ") ||
+      lower.includes("workflow") ||
+      lower.includes("fill form") ||
+      lower.includes("fill the form") ||
+      lower.includes("fill out") ||
+      lower.includes("book flight") ||
+      lower.includes("search amazon for") ||
+      lower.includes("search youtube for") ||
+      lower.includes("browse ") ||
+      lower.includes("navigate to ") ||
+      lower.includes("extract from") ||
+      lower.includes("scrape ") ||
+      lower.includes("compare prices") ||
+      lower.includes("playwright") ||
+      lower.includes("puppeteer") ||
+      (lower.includes("search") && (lower.includes("click") || lower.includes("select") || lower.includes("first video") || lower.includes("first result") || lower.includes("scroll")));
+
+    if (isCompoundBrowserTask) {
+      setActiveTab("browser");
+      setJarvisState("browsing");
+      setStatusMessage("Autonomous Browser Agent Engaged.");
+
+      const jarvisAck = `Understood, sir. Initiating Autonomous Browser Agent and executing: "${text}". Synthesizing Playwright code and human cursor trajectories.`;
+      const jarvisMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: "jarvis",
+        text: jarvisAck,
+        timestamp: new Date().toISOString(),
+        browserWorkflowTriggered: true,
+      };
+      setMessages((prev) => [...prev, jarvisMsg]);
+      if (auth.currentUser) {
+        syncMessageToFirestore(auth.currentUser.uid, jarvisMsg).catch(console.error);
+      }
+      handleSpeak(jarvisAck);
+      setIsProcessing(false);
+
+      // Trigger browser workflow formulation and execution
+      try {
+        const planRes = await fetch("/api/jarvis/browser-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ taskGoal: text }),
+        });
+        const planData: BrowserWorkflowPlan = await planRes.json();
+        setPendingBrowserWorkflow({ ...planData, timestamp: Date.now() } as any);
+      } catch (e) {
+        console.error("Browser plan formulation error:", e);
+      }
+      return;
+    }
+
+    // Universal Fast-path Real Website & Navigation Resolver (Single tabs: "open youtube", "go to google.com", "open github")
     const resolvedWeb = resolveVoiceToWebsite(text);
     if (resolvedWeb) {
       if (resolvedWeb.targetUrl.includes("youtube.com") && !activeYouTubeMedia) {
@@ -491,48 +678,6 @@ export default function App() {
       handleOpenRealTab(resolvedWeb.targetUrl, resolvedWeb.siteName);
       setIsProcessing(false);
       setJarvisState("idle");
-      return;
-    }
-
-    // Intent 1: Autonomous Browser Command ("browse", "navigate", "extract from", "scrape", "compare prices")
-    if (
-      lower.includes("browse") ||
-      lower.includes("navigate") ||
-      lower.includes("extract from") ||
-      lower.includes("scrape") ||
-      lower.includes("compare prices")
-    ) {
-      setActiveTab("browser");
-      setJarvisState("browsing");
-      setStatusMessage("Autonomous Browser Agent Engaged.");
-
-      const jarvisAck = `Understood, sir. Switching to Autonomous Browser mode and executing: "${text}".`;
-      const jarvisMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: "jarvis",
-        text: jarvisAck,
-        timestamp: new Date().toISOString(),
-        browserWorkflowTriggered: true,
-      };
-      setMessages((prev) => [...prev, jarvisMsg]);
-      if (auth.currentUser) {
-        syncMessageToFirestore(auth.currentUser.uid, jarvisMsg).catch(console.error);
-      }
-      handleSpeak(jarvisAck);
-      setIsProcessing(false);
-
-      // Trigger browser workflow formulation
-      try {
-        const planRes = await fetch("/api/jarvis/browser-plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ taskGoal: text }),
-        });
-        const planData: BrowserWorkflowPlan = await planRes.json();
-        setPendingBrowserWorkflow(planData);
-      } catch (e) {
-        console.error("Browser plan formulation error:", e);
-      }
       return;
     }
 
@@ -576,23 +721,37 @@ export default function App() {
 
     // Default: General Query with Real-time Search Grounding & Real Browser Action Detection
     try {
-      const res = await fetch("/api/jarvis/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          conversationHistory: messages.slice(-4).map((m) => ({
-            role: m.sender,
-            text: m.text,
-          })),
-        }),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-      let data: any;
-      if (res.ok) {
-        data = await res.json();
-      } else {
-        console.warn("Backend chat endpoint returned non-200, activating local neural fallback.");
+      let data: any = null;
+      try {
+        const res = await fetch("/api/jarvis/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            message: text,
+            conversationHistory: messages.slice(-4).map((m) => ({
+              role: m.sender,
+              text: m.text,
+            })),
+          }),
+        });
+
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          data = await res.json();
+        } else {
+          data = processLocalJarvisHeuristics(text);
+        }
+      } catch (fetchErr: any) {
+        clearTimeout(timeoutId);
+        data = processLocalJarvisHeuristics(text);
+      }
+
+      if (!data) {
         data = processLocalJarvisHeuristics(text);
       }
 
@@ -615,6 +774,8 @@ export default function App() {
           setActiveYouTubeMedia(null);
         } else if (rAction.action === "OPEN_TAB" || rAction.action === "SEARCH_GOOGLE") {
           if (rAction.targetUrl) {
+            setActiveTab("browser");
+            setBrowserSandboxUrl(rAction.targetUrl);
             openBrowserTabSafely(rAction.targetUrl, rAction.query || "Requested Web Page");
           }
         }
@@ -637,7 +798,6 @@ export default function App() {
       setStatusMessage("Response delivered.");
       handleSpeak(responseText);
     } catch (err: any) {
-      console.error("Chat network notice (activating local heuristics):", err);
       const localResult = processLocalJarvisHeuristics(text);
 
       if (localResult.realBrowserAction) {
@@ -649,6 +809,8 @@ export default function App() {
           }
         } else if (rAction.action === "OPEN_TAB" || rAction.action === "SEARCH_GOOGLE") {
           if (rAction.targetUrl) {
+            setActiveTab("browser");
+            setBrowserSandboxUrl(rAction.targetUrl);
             openBrowserTabSafely(rAction.targetUrl, rAction.query || "Requested Web Page");
           }
         }
@@ -691,40 +853,71 @@ export default function App() {
       {/* Ambient Sophisticated Glow */}
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.06),_transparent_70%)] -z-10" />
 
-      {/* Real Browser Tab Dispatch Floating Banner */}
+      {/* Real Browser Tab & Windows Host Dispatch Floating Banner */}
       {activeTabDispatch && (
         <div
           id="real-tab-dispatch-toast"
-          className="fixed top-4 right-4 z-50 flex items-center gap-3 bg-[#0A0A0C]/95 border border-sky-500/40 px-4 py-2.5 rounded-2xl shadow-[0_0_30px_rgba(14,165,233,0.25)] backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300"
+          className="fixed top-4 right-4 z-50 flex flex-col gap-1.5 bg-[#0A0A0C]/95 border border-sky-500/40 px-4 py-3 rounded-2xl shadow-[0_0_30px_rgba(14,165,233,0.25)] backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300 max-w-sm"
         >
-          <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center shrink-0">
-            <Globe className="w-4 h-4 text-sky-400 animate-pulse" />
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400">Browser Tab Dispatched</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center shrink-0">
+                <Globe className="w-4 h-4 text-sky-400 animate-pulse" />
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400 font-bold">
+                    Host & Browser Dispatched
+                  </span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                </div>
+                <span className="text-xs text-white font-medium max-w-[180px] truncate">
+                  {activeTabDispatch.title}
+                </span>
+              </div>
             </div>
-            <span className="text-xs text-white font-medium max-w-[200px] truncate">
-              {activeTabDispatch.title}
-            </span>
+
+            <div className="flex items-center gap-1">
+              <a
+                href={activeTabDispatch.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => SoundFX.playComputeChime()}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-semibold text-xs font-mono shadow-md transition-all"
+              >
+                <span>Open ↗</span>
+              </a>
+              <button
+                onClick={() => setActiveTabDispatch(null)}
+                className="text-slate-500 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-all"
+                title="Dismiss notification"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-          <a
-            href={activeTabDispatch.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => SoundFX.playComputeChime()}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-semibold text-xs font-mono shadow-md transition-all ml-1"
-          >
-            <span>Open ↗</span>
-          </a>
-          <button
-            onClick={() => setActiveTabDispatch(null)}
-            className="text-slate-500 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-all"
-            title="Dismiss notification"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+
+          {activeTabDispatch.windowsCommand && (
+            <div className="mt-1 pt-1.5 border-t border-white/5 flex items-center justify-between gap-2 text-[10px] font-mono">
+              <div className="flex items-center gap-1 text-slate-400 truncate">
+                <Terminal className="w-3 h-3 text-sky-400 shrink-0" />
+                <span className="truncate text-slate-300">{activeTabDispatch.windowsCommand}</span>
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(activeTabDispatch.windowsCommand!);
+                  SoundFX.playComputeChime();
+                  setCopiedToastCmd(true);
+                  setTimeout(() => setCopiedToastCmd(false), 2000);
+                }}
+                className="text-sky-400 hover:text-sky-300 shrink-0 flex items-center gap-0.5"
+                title="Copy Windows Shell Command"
+              >
+                {copiedToastCmd ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                <span>{copiedToastCmd ? "Copied" : "Copy CLI"}</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -819,19 +1012,88 @@ export default function App() {
               </div>
             )}
 
-            {/* Autonomous Browser Agent Sandbox View */}
+            {/* Browser Module: Real Browser Controller & Simulator Sandbox */}
             {activeTab === "browser" && (
-              <BrowserSandbox
-                initialWorkflow={pendingBrowserWorkflow}
-                onJarvisSpeak={handleSpeak}
-                onOpenRealTab={handleOpenRealTab}
-                onPlayYouTube={handlePlayYouTube}
-              />
+              <div className="space-y-6">
+                {/* Mode Selector Navigation Pill */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-[#080d1a]/90 border border-sky-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                      <Globe className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-mono font-bold text-white flex items-center gap-2">
+                        <span>BROWSER EXECUTION MODE</span>
+                        <span className="text-[9px] uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                          {browserControlMode === "real" ? "REAL HOST MACHINE" : "SIMULATED SANDBOX"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-mono text-white/50">
+                        {browserControlMode === "real"
+                          ? "Commands your real Google Chrome, Edge, and Windows tabs via CDP, Host Bridge, and direct window dispatcher"
+                          : "Visual DOM engine with virtual mouse cursor, step execution, and live DOM tree inspector"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/60 border border-white/10 shrink-0">
+                    <button
+                      id="btn-switch-real-browser"
+                      onClick={() => {
+                        SoundFX.playTargetClick();
+                        setBrowserControlMode("real");
+                      }}
+                      className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                        browserControlMode === "real"
+                          ? "bg-sky-500 text-black font-bold shadow-[0_0_15px_rgba(14,165,233,0.4)]"
+                          : "text-white/60 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>CONTROL MY REAL BROWSER</span>
+                    </button>
+
+                    <button
+                      id="btn-switch-sandbox-browser"
+                      onClick={() => {
+                        SoundFX.playTargetClick();
+                        setBrowserControlMode("sandbox");
+                      }}
+                      className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                        browserControlMode === "sandbox"
+                          ? "bg-sky-500 text-black font-bold shadow-[0_0_15px_rgba(14,165,233,0.4)]"
+                          : "text-white/60 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <Terminal className="w-3.5 h-3.5" />
+                      <span>SIMULATED SANDBOX</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Active View: Real Browser Bridge vs Sandbox Engine */}
+                {browserControlMode === "real" ? (
+                  <RealBrowserBridge
+                    onOpenRealTab={handleOpenRealTab}
+                    onPlayYouTube={handlePlayYouTube}
+                    onJarvisSpeak={handleSpeak}
+                  />
+                ) : (
+                  <BrowserSandbox
+                    initialWorkflow={pendingBrowserWorkflow}
+                    initialUrl={browserSandboxUrl}
+                    onJarvisSpeak={handleSpeak}
+                    onOpenRealTab={handleOpenRealTab}
+                    onPlayYouTube={handlePlayYouTube}
+                  />
+                )}
+              </div>
             )}
 
             {/* Daily Productivity & Morning Intelligence Briefing */}
             {activeTab === "productivity" && (
               <DailyProductivity
+                initialNewTask={pendingNewTask}
                 onJarvisSpeak={handleSpeak}
                 onTriggerBrowserWorkflow={handleTriggerBrowserWorkflow}
               />
@@ -839,7 +1101,7 @@ export default function App() {
 
             {/* Deep Research Lab */}
             {activeTab === "research" && (
-              <ResearchLab onJarvisSpeak={handleSpeak} />
+              <ResearchLab initialTopic={pendingResearchTopic} onJarvisSpeak={handleSpeak} />
             )}
           </main>
 

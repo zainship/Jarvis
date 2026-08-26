@@ -269,22 +269,28 @@ export function resolveVoiceToWebsite(rawInput: string): ResolvedWebsite | null 
 
   const normalized = normalizeSpeechToUrl(rawInput);
 
-  // Strip conversational prefixes and polite fillers
+  // Strip conversational prefixes and polite fillers (English & Hindi)
   let target = normalized
     .replace(/^(hey\s+jarvis|ok\s+jarvis|yo\s+jarvis|alright\s+jarvis|bro\s+jarvis|bro|jarvis)\s*,?\s*/i, "")
-    .replace(/^(please|can\s+you|could\s+you|would\s+you|kindly)\s+/i, "")
+    .replace(/^(please|can\s+you|could\s+you|would\s+you|kindly|kripya|bhai|yaar|are|arey)\s+/i, "")
     .trim();
 
-  // Check for search intent first: "search google for X", "search for X", "google X"
+  const isHindiText = /[\u0900-\u097F]/.test(rawInput) || target.includes("kholo") || target.includes("khojo") || target.includes("par search");
+
+  // Check for search intent first: "search google for X", "search for X", "google X", "google par search karo X"
   if (
     target.startsWith("search google for ") ||
     target.startsWith("search for ") ||
     target.startsWith("google ") ||
-    target.startsWith("search ")
+    target.startsWith("search ") ||
+    target.includes("par search karo") ||
+    target.includes("pe search karo") ||
+    target.includes("खोजो") ||
+    target.startsWith("khojo ")
   ) {
     const searchTopic = target
-      .replace(/^(search\s+google\s+for|search\s+for|google|search)\s+/i, "")
-      .replace(/\s+on\s+google$/i, "")
+      .replace(/^(search\s+google\s+for|search\s+for|google|search|khojo|खोजो)\s+/i, "")
+      .replace(/\s+(on\s+google|par\s+search\s+karo|pe\s+search\s+karo|search\s+karo)$/i, "")
       .trim();
 
     if (searchTopic) {
@@ -294,23 +300,26 @@ export function resolveVoiceToWebsite(rawInput: string): ResolvedWebsite | null 
         targetUrl: searchUrl,
         siteName: `Google Search: "${searchTopic}"`,
         action: "SEARCH_GOOGLE",
-        confirmationSpeech: `Searching Google for "${searchTopic}" in your browser, sir.`,
+        confirmationSpeech: isHindiText
+          ? `गूगल पर "${searchTopic}" खोजा जा रहा है, सर।`
+          : `Searching Google for "${searchTopic}" in your browser, sir.`,
       };
     }
   }
 
-  // Check for navigation / open triggers
+  // Check for navigation / open triggers in English and Hindi
   const isNavTrigger =
-    /^(open\s+up|open|launch|go\s+to|navigate\s+to|visit|take\s+me\s+to|show\s+me|bring\s+up|browse\s+to|browse|head\s+to|load|start|access|pull\s+up|switch\s+to)\b/i.test(
+    /^(open\s+up|open|launch|go\s+to|navigate\s+to|visit|take\s+me\s+to|show\s+me|bring\s+up|browse\s+to|browse|head\s+to|load|start|access|pull\s+up|switch\s+to|kholo|chalu\s+karo|खोलो)\b/i.test(
       target
-    );
+    ) || /\s+(kholo|open\s+karo|chalu\s+karo|खोलो)$/i.test(target);
 
   if (isNavTrigger) {
     target = target
       .replace(
-        /^(open\s+up|open|launch|go\s+to|navigate\s+to|visit|take\s+me\s+to|show\s+me|bring\s+up|browse\s+to|browse|head\s+to|load|start|access|pull\s+up|switch\s+to)\s+/i,
+        /^(open\s+up|open|launch|go\s+to|navigate\s+to|visit|take\s+me\s+to|show\s+me|bring\s+up|browse\s+to|browse|head\s+to|load|start|access|pull\s+up|switch\s+to|kholo|chalu\s+karo|खोलो)\s+/i,
         ""
       )
+      .replace(/\s+(kholo|open\s+karo|chalu\s+karo|खोलो)$/i, "")
       .replace(/^(the\s+)?(website|site|webpage|page|portal|tab|new\s+tab)\s+(of\s+)?/i, "")
       .replace(/\s+in\s+(my\s+)?(browser|real\s+browser|new\s+tab|tab)$/i, "")
       .replace(/\s+(website|site|portal|page|app)$/i, "")

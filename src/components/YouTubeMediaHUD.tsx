@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { YouTubeMedia } from "../types";
 import { SoundFX } from "../utils/soundEffects";
+import { hostBridgeManager } from "../utils/hostBridgeManager";
 
 interface YouTubeMediaHUDProps {
   media: YouTubeMedia | null;
@@ -77,9 +78,14 @@ export const YouTubeMediaHUD: React.FC<YouTubeMediaHUDProps> = ({
   const handleOpenRealTab = () => {
     SoundFX.playComputeChime();
     const url = `https://www.youtube.com/watch?v=${media.videoId}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    hostBridgeManager.dispatchHostExecution({
+      action: "PLAY_YOUTUBE",
+      targetUrl: url,
+      title: media.title,
+      videoId: media.videoId,
+    });
     if (onJarvisSpeak) {
-      onJarvisSpeak("Opening real YouTube stream in an active browser tab, sir.");
+      onJarvisSpeak("Commanding Windows host machine and browser to open real YouTube stream, sir.");
     }
   };
 

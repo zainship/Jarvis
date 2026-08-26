@@ -51,6 +51,7 @@ class VoiceManager {
   private voiceSettings: VoiceSettings = {
     pitch: 0.95,
     rate: 1.05,
+    volume: 1.0,
     voiceURI: "",
     presetName: "Classic JARVIS",
     language: "auto",
@@ -72,6 +73,7 @@ class VoiceManager {
         this.voiceSettings = {
           pitch: typeof parsed.pitch === "number" ? Math.max(0.5, Math.min(1.6, parsed.pitch)) : 0.95,
           rate: typeof parsed.rate === "number" ? Math.max(0.6, Math.min(1.8, parsed.rate)) : 1.05,
+          volume: typeof parsed.volume === "number" ? Math.max(0.0, Math.min(1.0, parsed.volume)) : 1.0,
           voiceURI: parsed.voiceURI || "",
           presetName: parsed.presetName || "Classic JARVIS",
           language: parsed.language || "auto",
@@ -88,6 +90,16 @@ class VoiceManager {
     } catch (e) {
       console.warn("Could not persist voice settings", e);
     }
+  }
+
+  public setVolume(vol: number) {
+    this.voiceSettings.volume = Math.max(0, Math.min(1, vol));
+    this.persistSettings();
+    this.notifyListeners();
+  }
+
+  public getVolume(): number {
+    return this.voiceSettings.volume !== undefined ? this.voiceSettings.volume : 1.0;
   }
 
   private initSpeechSynthesis() {
@@ -432,6 +444,7 @@ class VoiceManager {
     const utterance = new SpeechSynthesisUtterance(cleanSpokenText);
     utterance.rate = Math.max(0.5, Math.min(2.0, this.voiceSettings.rate));
     utterance.pitch = Math.max(0.5, Math.min(1.6, this.voiceSettings.pitch));
+    utterance.volume = Math.max(0.0, Math.min(1.0, this.voiceSettings.volume ?? 1.0));
 
     // Detect if spoken text is Hindi or user selected Hindi language
     const isHindiText = /[\u0900-\u097F]/.test(cleanSpokenText) || this.voiceSettings.language === "hi-IN";

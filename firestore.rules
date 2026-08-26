@@ -85,6 +85,7 @@ service cloud.firestore {
              data.rate is number && data.rate >= 0.1 && data.rate <= 3.0 &&
              (!('voiceURI' in data) || (data.voiceURI is string && data.voiceURI.size() <= 512)) &&
              (!('presetName' in data) || (data.presetName is string && data.presetName.size() <= 128)) &&
+             (!('language' in data) || (data.language is string && data.language.size() <= 32)) &&
              data.updatedAt is string && data.updatedAt.size() <= 64;
     }
 

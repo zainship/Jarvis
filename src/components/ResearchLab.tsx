@@ -36,6 +36,7 @@ import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 
 interface ResearchLabProps {
   onJarvisSpeak: (text: string) => void;
+  initialTopic?: string | null;
 }
 
 interface SavedDossierRecord {
@@ -47,7 +48,7 @@ interface SavedDossierRecord {
   createdAt: string;
 }
 
-export const ResearchLab: React.FC<ResearchLabProps> = ({ onJarvisSpeak }) => {
+export const ResearchLab: React.FC<ResearchLabProps> = ({ onJarvisSpeak, initialTopic }) => {
   const [topic, setTopic] = useState("Quantum Computing Advancements and Enterprise Applications in 2026");
   const [isLoading, setIsLoading] = useState(false);
   const [dossier, setDossier] = useState<ResearchDossier | null>(null);
@@ -59,6 +60,14 @@ export const ResearchLab: React.FC<ResearchLabProps> = ({ onJarvisSpeak }) => {
   const [savedDossiers, setSavedDossiers] = useState<SavedDossierRecord[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(true);
   const exportDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Auto-execute when initialTopic is passed
+  useEffect(() => {
+    if (initialTopic && initialTopic.trim()) {
+      setTopic(initialTopic);
+      executeResearch(initialTopic);
+    }
+  }, [initialTopic]);
 
   // Sync saved dossiers from Firestore for authenticated user
   useEffect(() => {
