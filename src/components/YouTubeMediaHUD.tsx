@@ -78,6 +78,11 @@ export const YouTubeMediaHUD: React.FC<YouTubeMediaHUDProps> = ({
   const handleOpenRealTab = () => {
     SoundFX.playComputeChime();
     const url = `https://www.youtube.com/watch?v=${media.videoId}`;
+    try {
+      window.open(url, "jarvis_media_stream_tab", "noopener,noreferrer");
+    } catch (e) {
+      console.log("Direct tab opener notice:", e);
+    }
     hostBridgeManager.dispatchHostExecution({
       action: "PLAY_YOUTUBE",
       targetUrl: url,
@@ -85,7 +90,7 @@ export const YouTubeMediaHUD: React.FC<YouTubeMediaHUDProps> = ({
       videoId: media.videoId,
     });
     if (onJarvisSpeak) {
-      onJarvisSpeak("Commanding Windows host machine and browser to open real YouTube stream, sir.");
+      onJarvisSpeak(`Opening ${media.title || "the requested track"} in your dedicated YouTube browser tab, sir.`);
     }
   };
 

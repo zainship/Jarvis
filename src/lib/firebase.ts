@@ -25,7 +25,7 @@ import firebaseConfig from "../../firebase-applet-config.json";
 const app = initializeApp(firebaseConfig);
 
 // CRITICAL: Always provide firestoreDatabaseId
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
 export const auth = getAuth(app);
 
 export enum OperationType {
@@ -102,11 +102,60 @@ export async function testFirestoreConnection(): Promise<boolean> {
   }
 }
 
+// Google Workspace Scopes (Gmail, Docs, Drive, Meet)
+export const WORKSPACE_SCOPES = [
+  "https://mail.google.com/",
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/gmail.compose",
+  "https://www.googleapis.com/auth/gmail.labels",
+  "https://www.googleapis.com/auth/gmail.metadata",
+  "https://www.googleapis.com/auth/documents",
+  "https://www.googleapis.com/auth/documents.readonly",
+  "https://www.googleapis.com/auth/drive",
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/meetings.space.created",
+  "https://www.googleapis.com/auth/meetings.space.readonly",
+  "https://www.googleapis.com/auth/meetings.space.settings",
+];
+
+export const GMAIL_SCOPES = WORKSPACE_SCOPES;
+
+// In-memory access token cache (MANDATORY: Never store in localStorage)
+let cachedAccessToken: string | null = null;
+let isSigningIn = false;
+
+export const getAccessToken = async (): Promise<string | null> => {
+  return cachedAccessToken;
+};
+
+export const setCachedAccessToken = (token: string | null) => {
+  cachedAccessToken = token;
+};
+
 // Authentication Helpers
 export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
+  // Attach Gmail & Google Workspace Scopes
+  for (const scope of GMAIL_SCOPES) {
+    provider.addScope(scope);
+  }
+  // Force account selection / consent prompt if needed
+  provider.setCustomParameters({
+    prompt: "select_account",
+    access_type: "offline",
+  });
+
   try {
+    isSigningIn = true;
     const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential?.accessToken) {
+      cachedAccessToken = credential.accessToken;
+    }
+
     const user = result.user;
     if (user) {
       // Sync user profile to Firestore
@@ -125,14 +174,17 @@ export async function signInWithGoogle() {
         { merge: true }
       );
     }
-    return user;
+    return { user, accessToken: cachedAccessToken };
   } catch (err: any) {
     console.error("Google sign-in error:", err);
     throw err;
+  } finally {
+    isSigningIn = false;
   }
 }
 
 export async function signOutUser() {
+  cachedAccessToken = null;
   return fbSignOut(auth);
 }
 
@@ -267,6 +319,8 @@ export async function syncVoiceSettingsToFirestore(
     voiceURI?: string;
     presetName?: string;
     language?: string;
+    noiseElimination?: any;
+    voiceInterception?: any;
   }
 ) {
   const path = `users/${userId}/settings/voice`;
@@ -280,6 +334,8 @@ export async function syncVoiceSettingsToFirestore(
         voiceURI: settings.voiceURI || "",
         presetName: settings.presetName || "Custom",
         language: settings.language || "auto",
+        noiseElimination: settings.noiseElimination || null,
+        voiceInterception: settings.voiceInterception || null,
         updatedAt: new Date().toISOString(),
       },
       { merge: true }

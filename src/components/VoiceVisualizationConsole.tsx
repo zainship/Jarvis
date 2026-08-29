@@ -17,13 +17,37 @@ import {
   RotateCcw,
   CheckCircle2,
   Shield,
+  ShieldAlert,
+  ShieldCheck,
   VolumeX,
   Terminal,
   Copy,
   Check,
+  Eye,
+  EyeOff,
+  Camera,
+  Maximize2,
+  Scan,
+  UserCheck,
+  Sun,
+  Palette,
+  Shuffle,
+  Gauge,
+  Ear,
+  SlidersHorizontal,
+  Send,
 } from "lucide-react";
-import { ChatMessage, JarvisState } from "../types";
+import { ChatMessage, JarvisState, NoiseEliminationConfig, VoiceInterceptionConfig } from "../types";
 import { SoundFX } from "../utils/soundEffects";
+import { voiceManager } from "../utils/voiceManager";
+import { opticVisionManager, OpticVisionState } from "../utils/opticVisionManager";
+import { themeManager, JarvisTheme } from "../utils/themeManager";
+import { GmailInboxCard } from "./GmailInboxCard";
+import { GoogleDocCard } from "./GoogleDocCard";
+import { GoogleMeetCard } from "./GoogleMeetCard";
+import { FormFillTelemetryCard } from "./FormFillTelemetryCard";
+import { RoomSentryGuardCard } from "./RoomSentryGuardCard";
+import { ClapWakeCard } from "./ClapWakeCard";
 
 interface VoiceVisualizationConsoleProps {
   messages: ChatMessage[];
@@ -36,9 +60,11 @@ interface VoiceVisualizationConsoleProps {
   onToggleVoice: () => void;
   onSpeakMessage: (text: string) => void;
   onOpenVoiceSettings?: () => void;
+  onOpenThemeLibrary?: () => void;
   onOpenRealTab?: (url: string, name?: string) => void;
   onPlayYouTube?: (query: string) => void;
   onSendMessage?: (text: string, isVoice?: boolean) => void;
+  onOpenVisionHUD?: () => void;
 }
 
 type VisualizerMode = "holographic_matrix" | "frequency_bars" | "neural_waveform" | "spatial_constellation";
@@ -64,19 +90,134 @@ export const VoiceVisualizationConsole: React.FC<VoiceVisualizationConsoleProps>
   isProcessing,
   onToggleVoice,
   onSpeakMessage,
-  onTriggerBrowserWorkflow,
   onOpenVoiceSettings,
+  onOpenThemeLibrary,
   onOpenRealTab,
   onPlayYouTube,
   onSendMessage,
+  onOpenVisionHUD,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const miniCamRef = useRef<HTMLVideoElement | null>(null);
 
   const [activeVisMode, setActiveVisMode] = useState<VisualizerMode>("holographic_matrix");
   const [sensitivity, setSensitivity] = useState<number>(1.2);
   const [showTranscriptStream, setShowTranscriptStream] = useState<boolean>(true);
+  const [visionState, setVisionState] = useState<OpticVisionState>(opticVisionManager.getState());
+  const [currentTheme, setCurrentTheme] = useState<JarvisTheme>(themeManager.getTheme());
+
+  // Background Noise Elimination & Voice Interception States
+  const [noiseConfig, setNoiseConfig] = useState<NoiseEliminationConfig>(() => voiceManager.getNoiseConfig());
+  const [interceptionConfig, setInterceptionConfig] = useState<VoiceInterceptionConfig>(() => voiceManager.getInterceptionConfig());
+  const [interceptionAlert, setInterceptionAlert] = useState<{ timestamp: string; reason: string } | null>(null);
+  const [isCalibratingNoise, setIsCalibratingNoise] = useState(false);
+  const [calibrationSuccess, setCalibrationSuccess] = useState<number | null>(null);
+  const [permissionDenied, setPermissionDenied] = useState<boolean>(() => voiceManager.getIsPermissionDenied());
+  const [typedCommand, setTypedCommand] = useState("");
+  const [isRequestingMic, setIsRequestingMic] = useState(false);
+
+  // Subscribe to themeManager
+  useEffect(() => {
+    const unsub = themeManager.subscribe((theme) => {
+      setCurrentTheme(theme);
+    });
+    return () => unsub();
+  }, []);
+
+  // Subscribe to voiceManager for noise gate and interception updates
+  useEffect(() => {
+    const unsub = voiceManager.subscribe(() => {
+      setNoiseConfig(voiceManager.getNoiseConfig());
+      setInterceptionConfig(voiceManager.getInterceptionConfig());
+      setPermissionDenied(voiceManager.getIsPermissionDenied());
+    });
+
+    voiceManager.onInterception((ev) => {
+      setInterceptionAlert(ev);
+      setTimeout(() => {
+        setInterceptionAlert(null);
+      }, 4500);
+    });
+
+    return () => {
+      unsub();
+    };
+  }, []);
+
+  const handleGrantMicPermission = async () => {
+    setIsRequestingMic(true);
+    SoundFX.playComputeChime();
+    const success = await voiceManager.requestMicrophoneAccess();
+    setIsRequestingMic(false);
+    setPermissionDenied(!success);
+  };
+
+  const handleSendManualCommand = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!typedCommand.trim() || isProcessing) return;
+    SoundFX.playComputeChime();
+    onSendMessage(typedCommand.trim(), false);
+    setTypedCommand("");
+  };
+
+  const handleToggleNoiseElimination = () => {
+    SoundFX.playTargetClick();
+    const nextVal = !noiseConfig.enabled;
+    voiceManager.setNoiseConfig({ enabled: nextVal });
+    setNoiseConfig(voiceManager.getNoiseConfig());
+  };
+
+  const handleToggleInterception = () => {
+    SoundFX.playTargetClick();
+    const nextVal = !interceptionConfig.enabled;
+    voiceManager.setInterceptionConfig({ enabled: nextVal });
+    setInterceptionConfig(voiceManager.getInterceptionConfig());
+  };
+
+  const handleQuickCalibrateNoise = async () => {
+    setIsCalibratingNoise(true);
+    setCalibrationSuccess(null);
+    try {
+      const newGate = await voiceManager.calibrateNoiseFloor();
+      setCalibrationSuccess(newGate);
+      setTimeout(() => setCalibrationSuccess(null), 4000);
+    } catch (e) {
+      console.warn("Noise calibration error", e);
+    } finally {
+      setIsCalibratingNoise(false);
+    }
+  };
+
+  // Subscribe to opticVisionManager
+  useEffect(() => {
+    const unsub = opticVisionManager.subscribe((vState) => {
+      setVisionState(vState);
+    });
+    return () => unsub();
+  }, []);
+
+  // Bind stream to miniCamRef when active
+  useEffect(() => {
+    if (miniCamRef.current && visionState.isActive) {
+      const stream = opticVisionManager.getStream();
+      if (stream && miniCamRef.current.srcObject !== stream) {
+        miniCamRef.current.srcObject = stream;
+        miniCamRef.current.play().catch(() => {});
+      }
+    }
+  }, [visionState.isActive]);
+
+  const handleToggleOptic = async () => {
+    SoundFX.playComputeChime();
+    await opticVisionManager.toggleOpticVision();
+  };
+
+  const handleScanUser = async () => {
+    SoundFX.playComputeChime();
+    await opticVisionManager.analyzeCurrentFrame("look_at_me");
+  };
 
   // Smooth smoothed audio metrics for silky 60 FPS transitions
   const smoothedVolumeRef = useRef<number>(0);
@@ -104,15 +245,21 @@ export const VoiceVisualizationConsole: React.FC<VoiceVisualizationConsoleProps>
 
   // Voice presets for 1-click voice prompt dispatching without keyboard typing
   const VOICE_PROMPT_PRESETS = [
+    { label: "🎨 Switch to Mark 42", prompt: "Jarvis, change theme to Mark 42" },
+    { label: "🌲 Stealth Recon UI", prompt: "Jarvis, switch theme to Stealth Recon" },
+    { label: "⚡ Hulkbuster Orange", prompt: "Jarvis, set theme to Hulkbuster" },
+    { label: "🔮 Cosmic Valkyrie", prompt: "Jarvis, change theme to Valkyrie" },
+    { label: "👏 Test Clap Wake", prompt: "Jarvis, enable clap to wake and test my microphone" },
+    { label: "Arm Room Sentry (Away)", prompt: "Jarvis, monitor my room and keep an eye on it while I am away" },
+    { label: "Can You See Me?", prompt: "Jarvis, can you see me right now?" },
+    { label: "Look at Me & My Posture", prompt: "Jarvis, look at me and check my posture and lighting" },
+    { label: "What Am I Holding?", prompt: "Jarvis, what am I holding in front of the camera?" },
+    { label: "Fill Form on XYZ", prompt: "Jarvis, fill form on xyz website and login with my account" },
+    { label: "Start Google Meet", prompt: "Jarvis, start a google meet for Tactical Briefing" },
+    { label: "Make a Doc for Me", prompt: "Jarvis, make a document for me on Executive Strategy and System Roadmap" },
+    { label: "Check My Gmail", prompt: "Jarvis, check my gmail inbox" },
     { label: "Interstellar in 4K", prompt: "Jarvis, play Hans Zimmer Interstellar in 4K" },
-    { label: "AC/DC Back in Black", prompt: "Jarvis, play Back In Black by AC/DC" },
-    { label: "Lofi Live Radio", prompt: "Jarvis, play lofi hip hop live radio" },
-    { label: "Ludovico Einaudi Acoustic", prompt: "Jarvis, play Ludovico Einaudi acoustic" },
-    { label: "System Telemetry Report", prompt: "Jarvis, check system telemetry status" },
-    { label: "Set Volume 75%", prompt: "Jarvis, set volume to 75%" },
-    { label: "Look at Me (Optic Vision)", prompt: "Jarvis, look at me and check my status" },
     { label: "Morning Briefing", prompt: "Jarvis, give me my morning productivity briefing" },
-    { label: "Search AI Breakthroughs", prompt: "Jarvis, search Google for latest AI breakthroughs" },
   ];
 
   // Frequency Stats Calculation
@@ -490,8 +637,6 @@ export const VoiceVisualizationConsole: React.FC<VoiceVisualizationConsoleProps>
     SoundFX.playTargetClick();
     if (onSendMessage) {
       onSendMessage(prompt, true);
-    } else if (onTriggerBrowserWorkflow) {
-      onTriggerBrowserWorkflow(prompt);
     }
   };
 
@@ -596,6 +741,187 @@ export const VoiceVisualizationConsole: React.FC<VoiceVisualizationConsoleProps>
           <div className="bg-[#050507] px-3 py-1.5 rounded-xl border border-white/5 flex items-center justify-between">
             <span className="text-slate-500">ENERGY</span>
             <span className="font-bold text-white">{audioStats.volumePct}%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* -----------------------------------------------------------
+          FLASHING VOICE INTERCEPTION (BARGE-IN) ALERT NOTIFICATION
+          ----------------------------------------------------------- */}
+      {interceptionAlert && (
+        <div className="bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-amber-500/20 border-2 border-amber-400/80 rounded-2xl p-4 shadow-[0_0_30px_rgba(251,191,36,0.4)] animate-pulse flex items-center justify-between gap-3 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-400 text-black flex items-center justify-center font-bold shrink-0 shadow-lg">
+              <Zap className="w-5 h-5 fill-current" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-black tracking-widest text-amber-300 uppercase">
+                  ⚡ VOICE INTERCEPTION DETECTED (BARGE-IN)
+                </span>
+                <span className="text-[10px] font-mono text-slate-300">[{interceptionAlert.timestamp}]</span>
+              </div>
+              <p className="text-xs font-mono text-slate-200">
+                Speech synthesis halted immediately • Microphone re-armed for Sir Zain's command
+              </p>
+            </div>
+          </div>
+          <div className="px-2.5 py-1 rounded-lg bg-amber-400/20 border border-amber-400/40 text-[10px] font-mono font-bold text-amber-300 uppercase shrink-0">
+            CUT-THROUGH ACTIVE
+          </div>
+        </div>
+      )}
+
+      {/* -----------------------------------------------------------
+          BACKGROUND NOISE ELIMINATION & VOICE INTERCEPTION HUD POD
+          ----------------------------------------------------------- */}
+      <div
+        id="noise-elimination-hud-pod"
+        className="bg-[#0A0A0C] border border-white/10 rounded-2xl p-4 shadow-xl flex flex-col gap-3.5 relative overflow-hidden transition-all duration-300"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${noiseConfig.enabled ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" : "bg-slate-800 text-slate-500"}`}>
+              <Shield className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200">
+                  Noise Elimination & Voice Interception
+                </span>
+                <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase border ${noiseConfig.enabled ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "bg-slate-800 border-white/10 text-slate-400"}`}>
+                  {noiseConfig.enabled ? "DSP FILTER ACTIVE" : "BYPASSED"}
+                </span>
+                <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase border ${interceptionConfig.enabled ? "bg-amber-500/20 border-amber-500/40 text-amber-300" : "bg-slate-800 border-white/10 text-slate-400"}`}>
+                  {interceptionConfig.enabled ? "INTERCEPTION ARMED" : "INTERCEPTION OFF"}
+                </span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-400">
+                Filters background voices, AC hum, and room noise so JARVIS only hears you • Barge-in interruption enabled
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              id="calibrate-room-noise-quick-btn"
+              type="button"
+              onClick={handleQuickCalibrateNoise}
+              disabled={isCalibratingNoise || !noiseConfig.enabled}
+              className="px-3 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/40 text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40"
+              title="Measure room background noise for 1.5 seconds and auto-tune noise gate threshold"
+            >
+              <Gauge className={`w-3.5 h-3.5 ${isCalibratingNoise ? "animate-spin text-sky-400" : "text-sky-400"}`} />
+              <span>{isCalibratingNoise ? "CALIBRATING (1.5s)..." : "AUTO-CALIBRATE ROOM"}</span>
+            </button>
+
+            {onOpenVoiceSettings && (
+              <button
+                onClick={() => {
+                  SoundFX.playComputeChime();
+                  onOpenVoiceSettings();
+                }}
+                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Full Voice & Noise Elimination Settings"
+              >
+                <Sliders className="w-3.5 h-3.5 text-slate-400" />
+                <span>CALIBRATE</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Live Audio Gate Meter & Status Bar */}
+        <div className="bg-[#050508] border border-white/5 rounded-xl p-3 flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between text-[11px] font-mono gap-2">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500">VOICE LEVEL:</span>
+                <span className="font-bold text-sky-400">{noiseConfig.currentVoiceLevel}%</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500">GATE THRESHOLD:</span>
+                <span className="font-bold text-amber-400">{noiseConfig.gateThreshold}%</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1.5">
+                <span className="text-slate-500">PROFILE:</span>
+                <span className="font-bold text-slate-300 uppercase">{noiseConfig.suppressionLevel}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold border transition-all ${
+                noiseConfig.gateActive
+                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 animate-pulse"
+                  : "bg-slate-800 text-slate-400 border-white/10"
+              }`}>
+                {noiseConfig.gateActive ? "GATE: OPEN (VOICE PASSED)" : "GATE: CLOSED (ATTENUATING BACKGROUND)"}
+              </span>
+            </div>
+          </div>
+
+          {/* VU Energy Meter Bar */}
+          <div className="relative w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-white/10">
+            {/* Gate Marker */}
+            <div
+              className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 shadow-[0_0_6px_rgba(251,191,36,0.9)]"
+              style={{ left: `${noiseConfig.gateThreshold}%` }}
+            />
+            {/* Live Audio Energy */}
+            <div
+              className={`h-full transition-all duration-75 ${
+                noiseConfig.currentVoiceLevel >= noiseConfig.gateThreshold
+                  ? "bg-gradient-to-r from-sky-500 via-emerald-400 to-emerald-300"
+                  : "bg-slate-700"
+              }`}
+              style={{ width: `${Math.min(100, noiseConfig.currentVoiceLevel)}%` }}
+            />
+          </div>
+
+          {calibrationSuccess !== null && (
+            <div className="text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-2.5 py-1 flex items-center gap-1.5 font-mono">
+              <Check className="w-3.5 h-3.5 shrink-0" />
+              <span>Room silence measured! Noise gate calibrated to {calibrationSuccess}%. Ambient room noise will be ignored.</span>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Toggles Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+          <button
+            type="button"
+            onClick={handleToggleNoiseElimination}
+            className={`p-2 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+              noiseConfig.enabled
+                ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                : "bg-white/5 border-white/10 text-slate-400"
+            }`}
+          >
+            <span>NOISE FILTER</span>
+            <span className="font-bold text-[10px]">{noiseConfig.enabled ? "ON" : "OFF"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleToggleInterception}
+            className={`p-2 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+              interceptionConfig.enabled
+                ? "bg-amber-500/15 border-amber-500/40 text-amber-300"
+                : "bg-white/5 border-white/10 text-slate-400"
+            }`}
+          >
+            <span>INTERCEPTION</span>
+            <span className="font-bold text-[10px]">{interceptionConfig.enabled ? "ARMED" : "OFF"}</span>
+          </button>
+
+          <div className="bg-[#050508] p-2 rounded-xl border border-white/5 flex items-center justify-between text-slate-400">
+            <span>ISOLATION</span>
+            <span className="font-bold text-emerald-400 text-[10px]">{noiseConfig.voiceIsolation ? "ACTIVE" : "OFF"}</span>
+          </div>
+
+          <div className="bg-[#050508] p-2 rounded-xl border border-white/5 flex items-center justify-between text-slate-400">
+            <span>BARGE-INS</span>
+            <span className="font-bold text-sky-400 text-[10px]">{interceptionConfig.totalInterceptions} CUTS</span>
           </div>
         </div>
       </div>
@@ -711,6 +1037,301 @@ export const VoiceVisualizationConsole: React.FC<VoiceVisualizationConsoleProps>
               </div>
             </div>
           )}
+
+          {/* Interactive Gmail Inbox Telemetry HUD */}
+          {latestJarvisMessage.gmailTelemetry && (
+            <div className="mt-2 pl-8">
+              <GmailInboxCard
+                telemetry={latestJarvisMessage.gmailTelemetry}
+                onLaunchTab={onOpenRealTab}
+              />
+            </div>
+          )}
+
+          {/* Interactive Google Docs Telemetry HUD */}
+          {latestJarvisMessage.googleDocTelemetry && (
+            <div className="mt-2 pl-8">
+              <GoogleDocCard
+                telemetry={latestJarvisMessage.googleDocTelemetry}
+                onLaunchTab={onOpenRealTab}
+              />
+            </div>
+          )}
+
+          {/* Interactive Google Meet Space Telemetry HUD */}
+          {latestJarvisMessage.googleMeetTelemetry && (
+            <div className="mt-2 pl-8">
+              <GoogleMeetCard
+                telemetry={latestJarvisMessage.googleMeetTelemetry}
+                onLaunchTab={onOpenRealTab}
+              />
+            </div>
+          )}
+
+          {/* Interactive Form Fill & Login Telemetry HUD */}
+          {latestJarvisMessage.formFillTelemetry && (
+            <div className="mt-2 pl-8">
+              <FormFillTelemetryCard
+                telemetry={latestJarvisMessage.formFillTelemetry}
+                onLaunchTab={onOpenRealTab}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* -----------------------------------------------------------
+          J.A.R.V.I.S. MULTI-THEME UI MATRIX (10 Holographic UIs)
+          ----------------------------------------------------------- */}
+      <div
+        id="jarvis-theme-quick-pod"
+        className="bg-[#0A0A0C] border border-white/10 rounded-2xl p-4 shadow-xl flex flex-col gap-3 relative overflow-hidden transition-all duration-300"
+        style={{ borderColor: currentTheme.primaryColor + "40" }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{
+                backgroundColor: currentTheme.primaryColor + "20",
+                color: currentTheme.primaryColor,
+              }}
+            >
+              <Palette className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200">
+                  Stark Theme Matrix
+                </span>
+                <span
+                  className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase"
+                  style={{
+                    backgroundColor: currentTheme.primaryColor + "25",
+                    color: currentTheme.secondaryColor,
+                  }}
+                >
+                  {currentTheme.name}
+                </span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-500">
+                20 Distinct Holographic UIs • Say: "Jarvis, change theme to [Name]"
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => themeManager.cycleNextTheme()}
+              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-mono text-xs flex items-center gap-1 transition-all cursor-pointer"
+              title="Cycle to next UI theme"
+            >
+              <Shuffle className="w-3 h-3 text-amber-400" />
+              <span className="hidden sm:inline">Next UI</span>
+            </button>
+
+            {onOpenThemeLibrary && (
+              <button
+                onClick={() => {
+                  SoundFX.playComputeChime();
+                  onOpenThemeLibrary();
+                }}
+                className="px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer text-white shadow-sm flex items-center gap-1"
+                style={{
+                  backgroundColor: currentTheme.primaryColor,
+                }}
+              >
+                <Sparkles className="w-3 h-3" />
+                <span>All 20 Themes</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Swatch Bar (All 20 Themes) */}
+        <div className="grid grid-cols-4 sm:grid-cols-10 gap-1.5 pt-1">
+          {themeManager.getAllThemes().map((t) => {
+            const isSelected = t.id === currentTheme.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => themeManager.setTheme(t.id)}
+                title={`${t.name} (${t.suitArchetype})`}
+                className={`group relative p-1.5 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-white/15 shadow-md scale-[1.03]"
+                    : "bg-[#06080d] hover:bg-white/5 border-white/5 hover:border-white/20"
+                }`}
+                style={{
+                  borderColor: isSelected ? t.primaryColor : undefined,
+                  boxShadow: isSelected ? `0 0 10px ${t.primaryColor}50` : undefined,
+                }}
+              >
+                <div
+                  className="w-4 h-4 rounded-full border border-black/40 shadow-inner shrink-0"
+                  style={{ backgroundColor: t.primaryColor }}
+                />
+                <span className="text-[8.5px] font-mono text-slate-400 truncate max-w-full group-hover:text-white">
+                  {t.name.split(" ")[0]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* -----------------------------------------------------------
+          ACOUSTIC CLAP-TO-WAKE CONTROL POD
+          ----------------------------------------------------------- */}
+      <ClapWakeCard />
+
+      {/* -----------------------------------------------------------
+          AUTONOMOUS ROOM SENTRY & INTRUDER PERIMETER GUARD
+          ----------------------------------------------------------- */}
+      <RoomSentryGuardCard />
+
+      {/* -----------------------------------------------------------
+          ACTIVE OPTIC EYE TELEMETRY POD (JARVIS Visual Awareness)
+          ----------------------------------------------------------- */}
+      <div className="bg-[#0A0A0C] border border-white/5 rounded-2xl p-4 shadow-xl flex flex-col gap-3 relative overflow-hidden">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div
+              className={`w-2.5 h-2.5 rounded-full ${
+                visionState.isActive ? "bg-sky-400 animate-ping" : "bg-slate-600"
+              }`}
+            />
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200">
+              {visionState.isActive ? "Optic Vision Eye: Active & Watching" : "Optic Vision Sensor: Standby"}
+            </span>
+            <span className="hidden sm:inline text-[10px] font-mono text-slate-500">
+              [{visionState.isActive ? "STARK-OPTIC-STREAM-LIVE" : "CAMERA-OFFLINE"}]
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleOptic}
+              className={`px-3 py-1.5 rounded-xl border font-mono text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md ${
+                visionState.isActive
+                  ? "bg-sky-500/20 text-sky-300 border-sky-400/40 hover:bg-sky-500/30"
+                  : "bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {visionState.isActive ? (
+                <>
+                  <Eye className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Disable Vision</span>
+                </>
+              ) : (
+                <>
+                  <Camera className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Enable Optic Eye</span>
+                </>
+              )}
+            </button>
+
+            {visionState.isActive && onOpenVisionHUD && (
+              <button
+                onClick={onOpenVisionHUD}
+                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-sky-400 border border-white/10 transition-colors"
+                title="Expand Full Holographic Air Canvas HUD"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Live Camera Viewport & Real-time Biometrics Strip */}
+        {visionState.isActive ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center bg-[#050507] p-3 rounded-xl border border-sky-500/20">
+            {/* Mini Live Video Feed */}
+            <div className="relative w-full h-32 md:h-28 rounded-lg overflow-hidden border border-sky-500/30 bg-black flex items-center justify-center">
+              <video
+                ref={miniCamRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover scale-x-[-1]"
+              />
+              <div className="absolute top-1 left-2 font-mono text-[9px] bg-black/70 text-sky-400 px-1.5 py-0.5 rounded border border-sky-500/30">
+                LIVE OPTIC STREAM
+              </div>
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                <div className="w-16 h-16 border border-dashed border-sky-400/40 rounded-full" />
+              </div>
+            </div>
+
+            {/* Live Telemetry Attributes */}
+            <div className="md:col-span-2 flex flex-col justify-between h-full gap-2 font-mono text-xs">
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="bg-black/50 p-2 rounded-lg border border-white/5 flex items-center justify-between">
+                  <span className="text-slate-400">POSTURE:</span>
+                  <span className="font-bold text-sky-300">{visionState.biometrics.postureStatus}</span>
+                </div>
+                <div className="bg-black/50 p-2 rounded-lg border border-white/5 flex items-center justify-between">
+                  <span className="text-slate-400">GAZE:</span>
+                  <span className="font-bold text-emerald-300">{visionState.biometrics.gazeDirection}</span>
+                </div>
+                <div className="bg-black/50 p-2 rounded-lg border border-white/5 flex items-center justify-between">
+                  <span className="text-slate-400">LIGHTING:</span>
+                  <span className="font-bold text-amber-300">{visionState.biometrics.ambientLux} LM</span>
+                </div>
+                <div className="bg-black/50 p-2 rounded-lg border border-white/5 flex items-center justify-between">
+                  <span className="text-slate-400">THREAT:</span>
+                  <span className="font-bold text-emerald-400">{visionState.biometrics.threatLevel}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] text-slate-400 italic">
+                  JARVIS sees you continuously while conversing. Ask "Can you see me?" or "What am I holding?".
+                </span>
+                <button
+                  onClick={handleScanUser}
+                  disabled={visionState.isAnalyzing}
+                  className="px-3 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs shrink-0 flex items-center gap-1 transition-all cursor-pointer"
+                >
+                  <Scan className="w-3.5 h-3.5" />
+                  <span>{visionState.isAnalyzing ? "Scanning..." : "Deep Scan"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400 font-mono">
+            Enable Optic Eye so JARVIS can view your workspace, recognize items in your hands, check your posture, and maintain visual contact while talking to you.
+          </p>
+        )}
+      </div>
+
+      {/* -----------------------------------------------------------
+          MICROPHONE PERMISSION RE-ARM BANNER (If Denied or Blocked)
+          ----------------------------------------------------------- */}
+      {permissionDenied && (
+        <div className="bg-gradient-to-r from-rose-500/20 via-amber-500/20 to-rose-500/20 border border-rose-500/60 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-500 text-white flex items-center justify-center font-bold shrink-0 shadow-lg">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs font-mono font-bold text-rose-300 uppercase tracking-wider block">
+                Microphone Access Required
+              </span>
+              <p className="text-xs font-mono text-slate-300">
+                Browser blocked audio access. Click below to grant permission or type commands directly.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleGrantMicPermission}
+            disabled={isRequestingMic}
+            className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs font-mono transition-all shadow-md flex items-center gap-2 cursor-pointer shrink-0"
+          >
+            <Mic className="w-4 h-4" />
+            <span>{isRequestingMic ? "Requesting..." : "Enable Microphone"}</span>
+          </button>
         </div>
       )}
 
@@ -731,6 +1352,49 @@ export const VoiceVisualizationConsole: React.FC<VoiceVisualizationConsoleProps>
           </button>
         ))}
       </div>
+
+      {/* -----------------------------------------------------------
+          DIRECT COMMAND DISPATCH & KEYBOARD INPUT BAR
+          ----------------------------------------------------------- */}
+      <form
+        onSubmit={handleSendManualCommand}
+        className="bg-[#0A0A0C] border border-white/10 rounded-2xl p-2 sm:p-2.5 flex items-center gap-2 shadow-xl backdrop-blur-md"
+      >
+        <div className="pl-2.5 text-slate-500">
+          <Terminal className="w-4 h-4 text-sky-400" />
+        </div>
+        <input
+          type="text"
+          value={typedCommand}
+          onChange={(e) => setTypedCommand(e.target.value)}
+          placeholder={
+            isListening
+              ? "Speak or type command (e.g. 'Jarvis, check my schedule' or 'Play lofi')..."
+              : "Type a command or press spacebar to speak..."
+          }
+          className="flex-1 bg-transparent border-none text-white text-xs sm:text-sm font-mono placeholder:text-slate-500 focus:outline-none px-2"
+        />
+        <button
+          type="button"
+          onClick={onToggleVoice}
+          title={isListening ? "Listening active (Click to mute)" : "Click to speak"}
+          className={`p-2 rounded-xl border transition-all cursor-pointer ${
+            isListening
+              ? "bg-sky-500/20 text-sky-300 border-sky-400 animate-pulse shadow-[0_0_10px_rgba(14,165,233,0.3)]"
+              : "bg-white/5 text-slate-400 border-white/10 hover:text-white hover:bg-white/10"
+          }`}
+        >
+          {isListening ? <Mic className="w-4 h-4 text-sky-400" /> : <MicOff className="w-4 h-4" />}
+        </button>
+        <button
+          type="submit"
+          disabled={!typedCommand.trim() || isProcessing}
+          className="px-3.5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-40 disabled:hover:bg-sky-500 text-black font-bold text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+        >
+          <span>Send</span>
+          <Send className="w-3.5 h-3.5" />
+        </button>
+      </form>
 
       {/* -----------------------------------------------------------
           CIRCULAR VOICE ACTIVATION & MICROPHONE MASTER CONTROL

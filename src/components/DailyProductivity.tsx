@@ -16,9 +16,15 @@ import {
   ChevronRight,
   Cloud,
 } from "lucide-react";
-import { DailyBriefingData, ProductivityTask } from "../types";
+import { DailyBriefingData, ProductivityTask, GmailInboxTelemetry, GoogleDocTelemetry, GoogleMeetTelemetry } from "../types";
 import { SoundFX } from "../utils/soundEffects";
 import { voiceManager } from "../utils/voiceManager";
+import { fetchGmailInbox } from "../utils/gmailManager";
+import { fetchRecentGoogleDocs } from "../utils/docsManager";
+import { createGoogleMeetSpace } from "../utils/meetManager";
+import { GmailInboxCard } from "./GmailInboxCard";
+import { GoogleDocCard } from "./GoogleDocCard";
+import { GoogleMeetCard } from "./GoogleMeetCard";
 import {
   auth,
   db,
@@ -48,6 +54,12 @@ export const DailyProductivity: React.FC<DailyProductivityProps> = ({
 }) => {
   const [briefing, setBriefing] = useState<DailyBriefingData | null>(null);
   const [isLoadingBriefing, setIsLoadingBriefing] = useState(false);
+  const [gmailTelemetry, setGmailTelemetry] = useState<GmailInboxTelemetry | null>(null);
+  const [isLoadingGmail, setIsLoadingGmail] = useState(false);
+  const [docTelemetry, setDocTelemetry] = useState<GoogleDocTelemetry | null>(null);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+  const [meetTelemetry, setMeetTelemetry] = useState<GoogleMeetTelemetry | null>(null);
+  const [isLoadingMeet, setIsLoadingMeet] = useState(false);
   const [newTaskInput, setNewTaskInput] = useState("");
   const [taskCategory, setTaskCategory] = useState<"work" | "research" | "automation" | "personal">("work");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -131,7 +143,33 @@ export const DailyProductivity: React.FC<DailyProductivityProps> = ({
       }
     }
     fetchDailyBriefing(false);
+    loadGmailInbox();
+    loadDocsLibrary();
   }, []);
+
+  const loadGmailInbox = async () => {
+    setIsLoadingGmail(true);
+    try {
+      const data = await fetchGmailInbox(8);
+      setGmailTelemetry(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingGmail(false);
+    }
+  };
+
+  const loadDocsLibrary = async () => {
+    setIsLoadingDocs(true);
+    try {
+      const data = await fetchRecentGoogleDocs(6);
+      setDocTelemetry(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingDocs(false);
+    }
+  };
 
   // Handle external new task creation
   useEffect(() => {
@@ -326,6 +364,39 @@ export const DailyProductivity: React.FC<DailyProductivityProps> = ({
           </div>
         ) : null}
       </div>
+
+      {/* Gmail Comm Feed Panel */}
+      {gmailTelemetry && (
+        <div className="bg-[#0A0A0C] border border-white/5 rounded-2xl p-4 shadow-xl">
+          <GmailInboxCard
+            telemetry={gmailTelemetry}
+            onRefresh={(updated) => setGmailTelemetry(updated)}
+            onLaunchTab={onOpenRealTab}
+          />
+        </div>
+      )}
+
+      {/* Google Docs Workspace Library Panel */}
+      {docTelemetry && (
+        <div className="bg-[#0A0A0C] border border-white/5 rounded-2xl p-4 shadow-xl">
+          <GoogleDocCard
+            telemetry={docTelemetry}
+            onRefresh={(updated) => setDocTelemetry(updated)}
+            onLaunchTab={onOpenRealTab}
+          />
+        </div>
+      )}
+
+      {/* Google Meet Live Conference Panel */}
+      {meetTelemetry && (
+        <div className="bg-[#0A0A0C] border border-white/5 rounded-2xl p-4 shadow-xl">
+          <GoogleMeetCard
+            telemetry={meetTelemetry}
+            onRefresh={(updated) => setMeetTelemetry(updated)}
+            onLaunchTab={onOpenRealTab}
+          />
+        </div>
+      )}
 
       {/* Task Matrix & Voice Automation Planner */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

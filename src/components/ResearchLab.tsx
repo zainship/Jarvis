@@ -624,6 +624,7 @@ export const ResearchLab: React.FC<ResearchLabProps> = ({ onJarvisSpeak, initial
         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
           <span className="text-slate-500 text-[11px]">Popular Queries:</span>
           {[
+            "ShadowTalk AI Architecture & Mission Control",
             "Solid State Battery Breakthroughs",
             "Multimodal Autonomous Agents",
             "Global Semiconductor Supply Chain 2026",

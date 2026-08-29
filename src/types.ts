@@ -1,5 +1,29 @@
 export type JarvisState = "idle" | "listening" | "thinking" | "speaking" | "browsing" | "error";
 
+export type JarvisInterfaceId =
+  | "core"
+  | "armor"
+  | "satellite"
+  | "vitals"
+  | "schematics"
+  | "security"
+  | "quantum"
+  | "productivity"
+  | "media"
+  | "veronica";
+
+export interface JarvisInterfaceMeta {
+  id: JarvisInterfaceId;
+  name: string;
+  codename: string;
+  tagline: string;
+  category: "command" | "tactical" | "science" | "operations";
+  badge: string;
+  description: string;
+  iconName?: string;
+  voiceKeywords: string[];
+}
+
 export interface GroundingSource {
   title: string;
   url: string;
@@ -17,6 +41,131 @@ export interface ChatMessage {
   realBrowserAction?: RealBrowserAction;
   youtubeMedia?: YouTubeMedia;
   visionAnalysis?: VisionAnalysisResult;
+  websiteLoginBriefing?: WebsiteLoginBriefing;
+  gmailTelemetry?: GmailInboxTelemetry;
+  googleDocTelemetry?: GoogleDocTelemetry;
+  googleMeetTelemetry?: GoogleMeetTelemetry;
+  formFillTelemetry?: FormFillTelemetry;
+}
+
+export interface FormField {
+  id: string;
+  label: string;
+  name: string;
+  type: "text" | "email" | "tel" | "textarea" | "select" | "checkbox" | "number" | "radio";
+  value: string;
+  selector: string;
+  placeholder?: string;
+  isRequired?: boolean;
+  status: "auto_filled" | "verified" | "user_edited";
+  category?: "identity" | "contact" | "organization" | "content" | "consent";
+}
+
+export interface FormExecutionStep {
+  id: string;
+  stepNumber: number;
+  title: string;
+  action: "NAVIGATE" | "AUTHENTICATE" | "DOM_SCAN" | "SYNTHESIZE_VALUES" | "TYPE_FIELDS" | "VALIDATE" | "SUBMIT_READY";
+  status: "completed" | "in_progress" | "pending" | "failed";
+  details: string;
+  timestamp?: string;
+}
+
+export interface FormFillTelemetry {
+  id: string;
+  status: "ready" | "authenticating" | "scanning" | "filling" | "completed" | "error";
+  targetWebsite: string;
+  targetUrl: string;
+  loginUrl: string;
+  authMethod: "google_sso" | "oauth_redirect" | "direct_login" | "magic_link";
+  userEmail: string;
+  userName: string;
+  formType: "job_application" | "registration" | "contact_inquiry" | "feedback" | "survey" | "general" | "support_ticket";
+  formTitle: string;
+  fields: FormField[];
+  executionSteps: FormExecutionStep[];
+  autoSubmitReady: boolean;
+  summaryScript: string;
+  javascriptInjectionScript?: string;
+  playwrightCode?: string;
+  timestamp: string;
+}
+
+export interface GoogleMeetSpace {
+  name: string; // "spaces/{spaceId}"
+  meetingUri: string; // "https://meet.google.com/xxx-yyyy-zzz"
+  meetingCode: string; // "xxx-yyyy-zzz"
+  config?: {
+    accessType?: string;
+    entryPointAccess?: string;
+  };
+  activeConference?: {
+    conferenceRecord?: string;
+  };
+}
+
+export interface GoogleMeetTelemetry {
+  status: "created" | "ready" | "auth_required" | "error" | "loading";
+  spaceId?: string;
+  meetingUri: string;
+  meetingCode: string;
+  topic?: string;
+  summaryScript?: string;
+  errorMessage?: string;
+  createdAt?: string;
+  recentSpaces?: Array<{
+    name: string;
+    meetingUri: string;
+    meetingCode: string;
+    createTime?: string;
+    activeConference?: boolean;
+  }>;
+}
+
+export interface GoogleDocTelemetry {
+  documentId: string;
+  title: string;
+  documentUrl: string;
+  status: "created" | "listed" | "auth_required" | "error" | "loading";
+  summaryScript?: string;
+  previewContent?: string;
+  wordCount?: number;
+  lastModified?: string;
+  errorMessage?: string;
+  recentDocs?: Array<{
+    id: string;
+    name: string;
+    modifiedTime?: string;
+    webViewLink?: string;
+    thumbnailLink?: string;
+  }>;
+}
+
+export interface GmailEmailItem {
+  id: string;
+  threadId: string;
+  snippet: string;
+  subject: string;
+  from: string;
+  fromName?: string;
+  to?: string;
+  date: string;
+  isUnread: boolean;
+  isStarred: boolean;
+  labelIds: string[];
+  bodyText?: string;
+  bodyHtml?: string;
+}
+
+export interface GmailInboxTelemetry {
+  userEmail: string;
+  unreadCount: number;
+  totalMessages: number;
+  messages: GmailEmailItem[];
+  lastChecked: string;
+  status: "success" | "auth_required" | "loading" | "error";
+  errorMessage?: string;
+  summaryScript?: string;
 }
 
 export interface DetectedObjectBox {
@@ -232,13 +381,67 @@ export interface TelemetryData {
   opticsActive?: boolean;
 }
 
+export interface NoiseEliminationConfig {
+  enabled: boolean;
+  gateThreshold: number; // 0 to 100 (default: 18)
+  suppressionLevel: "low" | "medium" | "aggressive" | "ultra_tactical";
+  voiceIsolation: boolean; // Rejects low energy / ambient murmur
+  highPassFilter: boolean; // Cuts low rumble < 100Hz
+  vocalBoost: boolean; // Formant peaking 1.8-3.0 kHz
+  ambientNoiseFloor: number; // 0-100 measured
+  currentVoiceLevel: number; // 0-100 live RMS meter
+  gateActive: boolean; // true = gate open (voice passed), false = gate closed (attenuating noise)
+  micProfile?: "studio_condenser" | "headset_boom" | "laptop_array" | "conference_omni" | "ultra_directional";
+  echoCancellation?: boolean;
+  feedbackShield?: boolean;
+}
+
+export interface AudioChannelTelemetry {
+  rmsLevel: number;
+  peakDb: number;
+  snrDb: number;
+  isClipping: boolean;
+  gateOpen: boolean;
+  dominantHz: number;
+  sampleRate: number;
+  channelCount: number;
+  inputLatencyMs: number;
+}
+
+export interface VoiceInterceptionConfig {
+  enabled: boolean;
+  sensitivity: "normal" | "high" | "instant";
+  bargeInActive: boolean;
+  lastInterceptionTime: string | null;
+  totalInterceptions: number;
+  keywordTriggers?: string[];
+  autoResumeListening?: boolean;
+}
+
 export interface VoiceSettings {
   pitch: number; // 0.5 to 1.6
   rate: number;  // 0.6 to 1.8
   volume?: number; // 0.0 to 1.0
   voiceURI?: string;
   presetName?: string;
-  language?: "auto" | "hi-IN" | "en-US" | "en-GB";
+  language?: "auto" | "hi-IN" | "en-US" | "en-GB" | "en-IN";
+  noiseElimination?: {
+    enabled: boolean;
+    gateThreshold: number;
+    suppressionLevel: "low" | "medium" | "aggressive" | "ultra_tactical";
+    voiceIsolation: boolean;
+    highPassFilter?: boolean;
+    vocalBoost?: boolean;
+    micProfile?: "studio_condenser" | "headset_boom" | "laptop_array" | "conference_omni" | "ultra_directional";
+    echoCancellation?: boolean;
+    feedbackShield?: boolean;
+  };
+  voiceInterception?: {
+    enabled: boolean;
+    sensitivity: "normal" | "high" | "instant";
+    keywordTriggers?: string[];
+    autoResumeListening?: boolean;
+  };
 }
 
 export interface YouTubeMedia {
@@ -270,11 +473,29 @@ export type RealBrowserActionType =
   | "STOP_YOUTUBE"
   | "NAVIGATE_URL"
   | "INSPECT_WEBSITE"
+  | "LOGIN_WEBSITE"
+  | "BRIEF_WEBSITE"
   | "NONE";
+
+export interface WebsiteLoginBriefing {
+  siteName: string;
+  targetUrl: string;
+  loginUrl: string;
+  authMethod: "google_sso" | "oauth_redirect" | "direct_login" | "magic_link";
+  userEmail: string;
+  siteOverview: string;
+  keyFeatures: string[];
+  securityStatus: string;
+  recommendedActions?: string[];
+  spokenSummary?: string;
+  timestamp: string;
+}
 
 export interface RealBrowserAction {
   action: RealBrowserActionType;
   targetUrl?: string;
+  loginUrl?: string;
+  userEmail?: string;
   query?: string;
   videoId?: string;
   videoTitle?: string;
@@ -282,6 +503,7 @@ export interface RealBrowserAction {
   hostCommandWindows?: string;
   hostCommandPowerShell?: string;
   bridgeDispatched?: boolean;
+  websiteBriefing?: WebsiteLoginBriefing;
 }
 
 export interface HostBridgeConfig {
@@ -294,6 +516,52 @@ export interface HostBridgeConfig {
   webhookSecret?: string;
   lastPingStatus?: "online" | "offline" | "unchecked";
   lastPingTime?: number;
+}
+
+export interface SentryIntrusionEvent {
+  id: string;
+  timestamp: string;
+  confidence: number;
+  detectedCount: number;
+  threatLevel: "ELEVATED" | "CRITICAL" | "CAUTION";
+  details: string;
+  capturedSnapshot?: string;
+  alarmActive: boolean;
+}
+
+export interface ClapDetectionEvent {
+  id: string;
+  timestamp: string;
+  peakVolume: number;
+  energyRatio: number;
+  decayMs: number;
+  type: "single_clap" | "double_clap";
+}
+
+export interface ClapWakeConfig {
+  enabled: boolean;
+  sensitivity: "low" | "medium" | "high" | "tactical";
+  mode: "single_clap" | "double_clap";
+  spokenGreetingEnabled: boolean;
+  soundChimeEnabled: boolean;
+  totalClapsDetected: number;
+  lastClapTime: string | null;
+  ambientNoiseFloor: number; // 0-100
+  currentPeakLevel: number; // 0-100 live meter
+}
+
+export interface RoomSentryState {
+  enabled: boolean;
+  armed: boolean;
+  status: "disarmed" | "arming" | "patrolling" | "intrusion_detected" | "standby";
+  sensitivity: "low" | "medium" | "high" | "tactical_ultra";
+  beepingAlarmEnabled: boolean;
+  spokenWarningEnabled: boolean;
+  autoSnapshots: boolean;
+  lastIntrusionTime: string | null;
+  totalIntrusionsCount: number;
+  motionScore: number; // 0 - 100
+  history: SentryIntrusionEvent[];
 }
 
 export interface HostBridgeExecutionEvent {

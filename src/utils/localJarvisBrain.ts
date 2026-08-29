@@ -1,5 +1,5 @@
-import { RealBrowserAction, YouTubeMedia, BrowserWorkflowPlan } from "../types";
-import { resolveVoiceToWebsite, POPULAR_WEBSITES } from "./urlResolver";
+import { RealBrowserAction, YouTubeMedia, BrowserWorkflowPlan, WebsiteLoginBriefing } from "../types";
+import { resolveVoiceToWebsite, resolveWebsiteWithLogin, POPULAR_WEBSITES } from "./urlResolver";
 import { parsePrecisionMedia, ParsedMediaDirective } from "./mediaParser";
 
 export interface SystemActionDirective {
@@ -31,6 +31,7 @@ export interface LocalJarvisResult {
   sources?: Array<{ title: string; url: string }>;
   realBrowserAction?: RealBrowserAction;
   youtubeMedia?: YouTubeMedia;
+  websiteLoginBriefing?: WebsiteLoginBriefing;
   browserWorkflowTriggered?: boolean;
   workflowGoal?: string;
   targetWebsite?: string;
@@ -528,7 +529,86 @@ export function processLocalJarvisHeuristics(input: string): LocalJarvisResult {
   }
 
   // -------------------------------------------------------------
-  // 4. UNIVERSAL WEBSITE & NAVIGATION RESOLVER
+  // 3.5. SHADOWTALK AI ECOSYSTEM (ZAIN AHMED & FAHAD PATEL - KARACHI)
+  // -------------------------------------------------------------
+  if (
+    lower.includes("shadowtalk") ||
+    lower.includes("shadow talk") ||
+    (lower.includes("define") && (lower.includes("shadow") || lower.includes("talk"))) ||
+    (lower.includes("what is") && lower.includes("shadow")) ||
+    (lower.includes("who made") && lower.includes("shadow")) ||
+    (lower.includes("who created") && lower.includes("shadow")) ||
+    (lower.includes("founders of") && lower.includes("shadow")) ||
+    (lower.includes("research") && lower.includes("shadow"))
+  ) {
+    const isHindiGreeting = isHindi;
+    return {
+      text: isHindiGreeting
+        ? "सर, **शैडोटॉक एआई (ShadowTalk AI)** कराची, पाकिस्तान के **ज़ैन अहमद (Zain Ahmed)** और **फ़हद पटेल (Fahad Patel)** द्वारा सह-स्थापित और इंजीनियर किया गया एक एजेंटिक एआई वर्कस्पेस है।\n\n" +
+          "**मुख्य पहचान:**\n" +
+          "• *स्लोगन:* 'Think AI. Think ShadowTalk.' | *टैगलाइन:* 'The AI workspace that doesn't own you.' | *सिद्धांत:* 'ChatGPT answers. ShadowTalk executes.'\n\n" +
+          "**प्रमुख क्षमताएं:**\n" +
+          "1. **मिशन कंट्रोल (Mission Control):** एक ही वाक्य से बहु-चरणीय स्वायत्त मिशन निष्पादित करें, उच्च प्रभाव वाले कार्यों पर ह्यूमन अप्रूवल गेट्स के साथ।\n" +
+          "2. **30+ एजेंटिक टूल्स:** वेब सर्च, कोड एक्ज़ीक्यूशन, डेटा एनालिसिस, मल्टी-मॉडल टूल्स।\n" +
+          "3. **आईडीई और ऐप बिल्डर (/ide):** चैट से सीधे मल्टी-फ़ाइल कोडबेस और वेब ऐप्स बनाएं।\n" +
+          "4. **वॉल्ट और BYOK (Bring Your Own Key):** 100% डेटा संप्रभुता—जेमिनी, किमी आदि की अपनी कुंजियों का उपयोग करें बिना किसी अतिरिक्त शुल्क के।\n" +
+          "5. **ऑफलाइन और ऑन-डिवाइस रूटिंग:** स्मॉलएलएम (SmolLM) और जेमा (Gemma) के साथ ऑफलाइन टियर्स।\n" +
+          "6. **डेस्कटॉप ऐप (Electron):** लोकल फाइल सिस्टम एक्सेस और ओएस नोटिफिकेशन्स।\n\n" +
+          "🌐 **पोर्टल:** `https://www.shadowtalk-ai.com/chatbot` | **दस्तावेज़:** `/docs` | **गिटहब:** `github.com/zain836/shadowtalk-ai-903ca615`"
+        : "Sir, **ShadowTalk AI** is the premier agentic AI workspace engineered and co-founded by **Zain Ahmed** and **Fahad Patel** from Karachi, Pakistan.\n\n" +
+          "### ⚡ Identity & Mission\n" +
+          "• **Slogan:** *\"Think AI. Think ShadowTalk.\"*\n" +
+          "• **Tagline:** *\"The AI workspace that doesn't own you.\"*\n" +
+          "• **Philosophy:** *\"ChatGPT answers. ShadowTalk executes.\"*\n" +
+          "• **Core Purpose:** Built for builders and power users tired of passive chatbots. ShadowTalk empowers you to plan autonomous missions, chain 30+ tools from a single natural sentence, gate critical operations with human-in-the-loop approvals, and build full-stack apps with zero platform lock-in.\n\n" +
+          "### 🛠️ Core Architectural Pillars\n" +
+          "1. **Mission Control:** Autonomous multi-step execution pipelines with real-time telemetry and safety approval gates.\n" +
+          "2. **30+ Native Agentic Tools:** One-shot tool invocation for web intelligence, data processing, and workflow automation.\n" +
+          "3. **Generative IDE & App Builder (`/ide`):** Build, inspect, edit, and preview multi-file codebases and web applications directly from conversational directives.\n" +
+          "4. **BYOK Vault (Bring Your Own Key):** Zero vendor lock-in; connect your Gemini, Kimi, or custom model credentials directly without markup.\n" +
+          "5. **Hardware-Aware Offline Intelligence:** Tiered on-device fallback (SmolLM & Gemma) for offline resilience.\n" +
+          "6. **Native Desktop Platform (Electron):** Local file-system integration, native OS notifications, and offline-first workflows (`VITE_LOCAL_FIRST=1`).\n" +
+          "7. **Instant Workspace-First UX:** Direct navigation to `/chatbot` with zero loading friction.\n\n" +
+          "🔗 **Official URLs & Repositories:**\n" +
+          "• Workspace: `https://www.shadowtalk-ai.com/chatbot`\n" +
+          "• Marketing Portal: `https://www.shadowtalk-ai.com/home`\n" +
+          "• Engineering Docs: `https://www.shadowtalk-ai.com/docs`\n" +
+          "• IDE Builder: `https://www.shadowtalk-ai.com/ide`\n" +
+          "• GitHub: `https://github.com/zain836/shadowtalk-ai-903ca615`",
+      sources: [
+        { title: "ShadowTalk AI Official Workspace", url: "https://www.shadowtalk-ai.com/chatbot" },
+        { title: "ShadowTalk Documentation & Architecture", url: "https://www.shadowtalk-ai.com/docs" },
+        { title: "ShadowTalk GitHub (Zain Ahmed & Fahad Patel)", url: "https://github.com/zain836/shadowtalk-ai-903ca615" },
+      ],
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 4. WEBSITE LOGIN & BRIEFING RESOLVER (Google SSO & Details)
+  // -------------------------------------------------------------
+  const resolvedLogin = resolveWebsiteWithLogin(trimmed);
+  if (resolvedLogin) {
+    return {
+      text: resolvedLogin.confirmationSpeech,
+      sources: [
+        { title: `${resolvedLogin.siteName} (Website)`, url: resolvedLogin.targetUrl },
+        { title: `${resolvedLogin.siteName} (Login Portal)`, url: resolvedLogin.loginUrl },
+      ],
+      realBrowserAction: {
+        action: "LOGIN_WEBSITE",
+        targetUrl: resolvedLogin.targetUrl,
+        loginUrl: resolvedLogin.loginUrl,
+        userEmail: resolvedLogin.userEmail,
+        query: resolvedLogin.siteName,
+        confirmationSpeech: resolvedLogin.confirmationSpeech,
+        websiteBriefing: resolvedLogin.briefing,
+      },
+      websiteLoginBriefing: resolvedLogin.briefing,
+    };
+  }
+
+  // -------------------------------------------------------------
+  // 5. UNIVERSAL WEBSITE & NAVIGATION RESOLVER
   // -------------------------------------------------------------
   const resolvedWeb = resolveVoiceToWebsite(trimmed);
   if (resolvedWeb) {

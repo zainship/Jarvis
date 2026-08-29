@@ -110,6 +110,12 @@ export function parsePrecisionMedia(input: string): ParsedMediaDirective | null 
   const raw = input.trim();
   const lower = raw.toLowerCase();
 
+  // Strip leading wake words and filler greetings first so detection works consistently
+  const strippedWake = lower
+    .replace(/^(hey\s+jarvis|ok\s+jarvis|yo\s+jarvis|alright\s+jarvis|jarvis)\s*,?\s*/i, "")
+    .replace(/^(please|can\s+you|could\s+you|would\s+you|kindly|kripya|bhai|yaar)\s+/i, "")
+    .trim();
+
   const isHindi =
     /[\u0900-\u097F]/.test(raw) ||
     lower.includes("gaana") ||
@@ -118,18 +124,21 @@ export function parsePrecisionMedia(input: string): ParsedMediaDirective | null 
     lower.includes("bajao") ||
     lower.includes("lagao");
 
-  // Determine if it is a media command
+  // Determine if it is a media command on either full or stripped string
   const isMediaTrigger =
-    lower.startsWith("play ") ||
+    strippedWake.startsWith("play ") ||
+    strippedWake.startsWith("play") ||
+    strippedWake.startsWith("stream ") ||
+    strippedWake.startsWith("listen to ") ||
+    strippedWake.startsWith("put on ") ||
+    strippedWake.startsWith("cue up ") ||
+    strippedWake.startsWith("start playing ") ||
     lower.includes("play on youtube") ||
     lower.includes("play song") ||
+    lower.includes("play the song") ||
     lower.includes("play track") ||
     lower.includes("play music") ||
     lower.includes("play video") ||
-    lower.includes("stream ") ||
-    lower.includes("listen to ") ||
-    lower.includes("put on ") ||
-    lower.includes("cue up ") ||
     lower.includes("gaana chalao") ||
     lower.includes("gana chalao") ||
     lower.includes("gaana lagao") ||
@@ -138,27 +147,52 @@ export function parsePrecisionMedia(input: string): ParsedMediaDirective | null 
     lower.includes("kuch bajao") ||
     lower.includes("गाना चलाओ") ||
     lower.includes("गाना बजाओ") ||
-    lower.includes("सॉन्ग चलाओ");
+    lower.includes("सॉन्ग चलाओ") ||
+    /\bplay\s+[a-zA-Z0-9]/i.test(strippedWake);
 
   if (!isMediaTrigger) {
     return null;
   }
 
-  // Strip commanding fillers
-  let target = lower
-    .replace(/^(hey\s+jarvis|ok\s+jarvis|yo\s+jarvis|alright\s+jarvis|jarvis)\s*,?\s*/i, "")
-    .replace(/^(please|can\s+you|could\s+you|would\s+you|kindly|kripya|bhai|yaar)\s+/i, "")
-    .replace(/^(play\s+me|play\s+some|play|stream|listen\s+to|put\s+on|cue\s+up|start\s+playing)\s+/i, "")
+  // Strip commanding fillers and wrappers
+  let target = strippedWake
+    .replace(/^(play\s+me|play\s+for\s+me|play\s+some|play\s+a\s+specific\s+song|play\s+that\s+specific\s+song|play\s+specific\s+song|play\s+a\s+song\s+for\s+me|play\s+a\s+song|play|stream|listen\s+to|put\s+on|cue\s+up|start\s+playing)\s+/i, "")
     .replace(/^(the\s+)?(video\s+of|song\s+of|track\s+of|music\s+of)\s+/i, "")
+    .replace(/^(the\s+)?(song|track|video|music)\s+/i, "")
     .replace(/^(gaana|gana|music|song)\s+(chalao|lagao|bajao|play karo)\s*/i, "")
+    .replace(/\s+(in\s+one\s+tab|in\s+a\s+tab|in\s+1\s+tab|in\s+the\s+same\s+tab|in\s+that\s+tab|in\s+single\s+tab)$/i, "")
+    .replace(/\s+(for\s+me|for\s+us|for\s+sir|mere\s+liye)$/i, "")
     .replace(/\s+(gaana|gana|music|song)\s+(chalao|lagao|bajao)$/i, "")
     .replace(/\s+(chalao|lagao|bajao|play karo)$/i, "")
+    .replace(/\s+(song|track|music|video)$/i, "")
     .replace(/\s+in\s+my\s+browser$/i, "")
+    .replace(/\s+in\s+(one|a|1|the\s+same)\s+tab$/i, "")
     .replace(/\s+on\s+youtube$/i, "")
+    .replace(/\s+from\s+youtube$/i, "")
     .trim();
 
-  if (!target || target === "music" || target === "something" || target === "song" || target === "gaana" || target === "gana") {
-    target = "lofi hip hop chill beats";
+  // Additional secondary pass for trailing tab or 'for me' modifiers
+  target = target
+    .replace(/\s+(in\s+one\s+tab|in\s+a\s+tab|in\s+1\s+tab|in\s+the\s+same\s+tab|in\s+single\s+tab)$/i, "")
+    .replace(/\s+(for\s+me|for\s+us|for\s+sir|mere\s+liye)$/i, "")
+    .replace(/^(that\s+)?specific\s+song\s*/i, "")
+    .replace(/^a\s+song\s*/i, "")
+    .trim();
+
+  // If user just said "play", "play a song for me", "play song", or empty
+  if (
+    !target ||
+    target === "music" ||
+    target === "something" ||
+    target === "song" ||
+    target === "a song" ||
+    target === "specific song" ||
+    target === "that specific song" ||
+    target === "for me" ||
+    target === "gaana" ||
+    target === "gana"
+  ) {
+    target = "AC/DC Back in Black Iron Man Theme";
   }
 
   // Detect Resolution Filter

@@ -1,6 +1,6 @@
 {
   "name": "JARVIS Autonomous Browser & Voice AI",
-  "description": "An autonomous AI assistant with real-time voice synthesis, Arc Reactor HUD, direct external navigation, YouTube playback, optic vision analysis, and daily productivity workflows.",
+  "description": "An autonomous AI assistant with 10 dedicated J.A.R.V.I.S. User Interfaces (Tactical Command Core, Armor Diagnostics & Telemetry, Orbital Recon & EDITH, Cryo-Biometrics Vitals, Cleanroom 3D CAD Lab, Surveillance Overwatch Sentry, Quantum Computing Lab, Stark Executive Workspace, Sonic Media Hub, and Veronica Hulkbuster Deployment Bay), real-time voice synthesis, Arc Reactor HUD, autonomous website login & form infill engine, and Google Workspace integrations.",
   "requestFramePermissions": ["microphone", "camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

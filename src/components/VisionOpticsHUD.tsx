@@ -42,6 +42,7 @@ import {
   DetectionLogEntry,
 } from "../types";
 import { OpticalHandTracker } from "../utils/handTracker";
+import { opticVisionManager } from "../utils/opticVisionManager";
 import { AirCanvasControls, AIR_DRAW_COLORS } from "./AirCanvasControls";
 import { DetectionFlightJournal } from "./DetectionFlightJournal";
 import { Holographic3DSchematics } from "./Holographic3DSchematics";
@@ -206,43 +207,36 @@ export const VisionOpticsHUD: React.FC<VisionOpticsHUDProps> = ({
     }
   }, []);
 
-  // Initialize camera stream
+  // Initialize camera stream via opticVisionManager
   const startCamera = useCallback(async () => {
     try {
       setCameraError(null);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
+      let stream = opticVisionManager.getStream();
+      if (!stream || !stream.active) {
+        await opticVisionManager.startOpticVision();
+        stream = opticVisionManager.getStream();
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      });
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(console.error);
+      if (stream) {
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(console.error);
+        }
+        setHasCameraPermission(true);
+        SoundFX.playTargetClick();
+      } else {
+        throw new Error("Unable to establish optical camera relay.");
       }
-      setHasCameraPermission(true);
-      SoundFX.playTargetClick();
     } catch (err: any) {
       console.warn("Camera stream initialization notice:", err);
       setHasCameraPermission(false);
       setCameraError(err.message || "Camera sensor access denied or unavailable.");
     }
-  }, [facingMode]);
+  }, []);
 
-  // Stop camera stream
+  // Stop camera stream / pause HUD loops
   const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
     if (detectionTimeoutRef.current) {
       clearTimeout(detectionTimeoutRef.current);
     }
